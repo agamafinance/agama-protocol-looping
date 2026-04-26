@@ -344,16 +344,23 @@ contract AgamaLendingPool is ERC4626, ILendingPool, AccessControl, Pausable, Ree
         // Liquidity check
         if (IERC20(asset()).balanceOf(address(this)) < amount) revert LiquidityShortfall();
 
-        // Mint debt at current usage index
-        DEBT_TOKEN.mint(msg.sender, amount, _reserve.usageIndex);
-
-        // Origination fee — only charged when a feeRecipient is wired. If
-        // unset, no fee is taken at all (so it can't accumulate as silent
-        // share-price inflation in the LP). Production deploys must wire the
-        // FeeCollector before opening borrows.
-        // The fee path uses the Aave-style approve+collectFee handshake so
-        // the FeeCollector can tag the fee type and forward to Treasury in
-        // one transaction.
+        // === Origination fee — charged BEFORE the debt mint to prevent the
+        //     fee from leaking value to existing lenders.
+        //
+        //     Why this order matters:
+        //     A debt mint inflates `totalAssets()` (cash + debt) without
+        //     adding shares, so the LP's share price spikes mid-tx. If the
+        //     fee path runs AFTER the mint, the FeeCollector → Treasury
+        //     auto-stake deposits at that inflated share price and acquires
+        //     fewer agTOKEN per USDr, leaving a slice of the fee's value
+        //     captured by pre-existing lenders pro-rata.
+        //
+        //     By charging the fee first, the LP cash dips before the debt
+        //     mint, the share price briefly drops, and Treasury's auto-stake
+        //     catches that dip — getting more shares per USDr. When the debt
+        //     mint then pumps the price up, Treasury rides the appreciation
+        //     pro-rata alongside Bob, neutralizing the leak. End result:
+        //     ~100% of the fee value accrues to the SP via Treasury.
         uint256 fee = 0;
         if (feeRecipient != address(0)) {
             fee = (amount * originationFeeBps) / BPS_DENOM;
@@ -362,6 +369,12 @@ contract AgamaLendingPool is ERC4626, ILendingPool, AccessControl, Pausable, Ree
                 IFeeCollector(feeRecipient).collectFee(asset(), address(this), fee, FEE_ORIGINATION);
             }
         }
+
+        // Mint debt at current usage index. Borrower owes `amount` total —
+        // the fee was prepaid out of the cash they're about to receive.
+        DEBT_TOKEN.mint(msg.sender, amount, _reserve.usageIndex);
+
+        // Disburse net to the borrower.
         IERC20(asset()).safeTransfer(msg.sender, amount - fee);
 
         _afterMutation();

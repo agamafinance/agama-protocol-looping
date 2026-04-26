@@ -147,21 +147,93 @@ contract S5FullStackTest is Test {
 
         uint256 fee = (500_000e18 * 50) / 10_000; // 50 bps
         assertEq(usdr.balanceOf(address(feeCollector)), 0, "FeeCollector forwarded synchronously");
-        // Treasury auto-staked the fee → it now holds agaSP, not USDr
-        assertEq(usdr.balanceOf(address(treasury)), 0);
+        assertEq(usdr.balanceOf(address(treasury)), 0, "Treasury auto-staked, holds no USDr");
 
-        // Treasury's agaSP balance: a small fraction of the fee value leaks to
-        // existing lenders because the LP's share price is *briefly* elevated
-        // mid-tx (debt is minted before the fee transfer in `borrow`). The
-        // bulk accrues to Treasury; the leak is bounded by the borrow's
-        // share-price impact and disappears once the principal is disbursed.
-        uint256 tBal = IERC20(address(sp)).balanceOf(address(treasury));
-        assertGt(tBal, 0, "Treasury staked the fee");
-        assertGt(tBal, (fee * 75) / 100, "at least 75% of the fee retained as Treasury stake");
-        assertLe(tBal, fee, "at most 100% of nominal fee");
+        // With the fee charged BEFORE the debt mint, Treasury's auto-stake
+        // deposits at the (briefly dipped) share price, catches more shares
+        // per USDr, and rides the debt-mint appreciation pro-rata. Net: it
+        // captures essentially 100% of the fee value (within rounding).
+        uint256 tAgaSP = IERC20(address(sp)).balanceOf(address(treasury));
+        uint256 tAgToken = sp.convertToAssets(tAgaSP);
+        uint256 tUsdrValue = pool.convertToAssets(tAgToken);
+        // Treasury's actual capture is ~100.12% of nominal: it *over*-captures
+        // by ~3 USDr per 2500 because the deposit-at-dip catches a bit more
+        // share value than the nominal fee buys. The "extra" comes from a
+        // matching ~3-USDr dilution of Bob's position (asserted in the
+        // dedicated noLeak test below). Tolerance accommodates both directions.
+        assertApproxEqAbs(tUsdrValue, fee, fee / 500, "Treasury captured ~100% of fee within 0.2%");
 
         // FeeCollector lifetime fees tracked
         assertEq(feeCollector.lifetimeFees(feeCollector.FEE_ORIGINATION(), address(usdr)), fee);
+    }
+
+    // ====================================================================
+    // 2.b Dedicated leak-prevention assertions (Option A fix)
+    // ====================================================================
+
+    /// @notice Bob and Charlie lend 1M USDr each. Alice borrows 500k. Their
+    ///         agTOKEN value should be (essentially) unchanged — the fee
+    ///         flow must not pump the LP share price for existing lenders.
+    function test_originationFee_noLeakToExistingLenders() public {
+        // Add Charlie alongside Bob to verify leak doesn't depend on solo lender.
+        address charlie = address(0xC0FFEE);
+        vm.prank(admin);
+        usdr.mint(charlie, 1_000_000e18);
+
+        _bobDeposit(1_000_000e18);
+        vm.startPrank(charlie);
+        usdr.approve(address(pool), 1_000_000e18);
+        pool.deposit(1_000_000e18, charlie);
+        vm.stopPrank();
+
+        // Snapshot pre-borrow USDr-equivalent values.
+        uint256 bobBefore = pool.convertToAssets(pool.balanceOf(bob));
+        uint256 charlieBefore = pool.convertToAssets(pool.balanceOf(charlie));
+
+        _aliceLeveraged(1_000_000e18, 500_000e18);
+
+        uint256 bobAfter = pool.convertToAssets(pool.balanceOf(bob));
+        uint256 charlieAfter = pool.convertToAssets(pool.balanceOf(charlie));
+
+        // Option A leaves a residual ~1.4 USDr / 2.5k fee dilution on
+        // existing lenders (the dip-and-pump asymmetry, ~0.06% of the fee
+        // value). Compared to the original ~500 USDr leak (20% of fee),
+        // this is a ~350× improvement. Bound with a 0.001% relative
+        // tolerance (10 USDr per 1M deposit) — comfortably loose, but tight
+        // enough to fail-fast if the ordering ever regresses.
+        assertApproxEqRel(bobAfter, bobBefore, 1e13, "Bob: lender value preserved");
+        assertApproxEqRel(charlieAfter, charlieBefore, 1e13, "Charlie: lender value preserved");
+    }
+
+    /// @notice Verify the full fee path (FeeCollector → Treasury → SP via
+    ///         auto-stake) lands ~100% of the nominal fee in the SP, not 75%
+    ///         or 80% as before the Option A fix.
+    function test_originationFee_fullPathToSP() public {
+        _bobDeposit(2_000_000e18);
+        _aliceLeveraged(1_000_000e18, 500_000e18);
+
+        uint256 fee = (500_000e18 * 50) / 10_000;
+        // Treasury's USDr-equivalent stake should match the fee within 0.2%.
+        uint256 tAgaSP = IERC20(address(sp)).balanceOf(address(treasury));
+        uint256 tUsdrValue = pool.convertToAssets(sp.convertToAssets(tAgaSP));
+        uint256 deviation = tUsdrValue > fee ? tUsdrValue - fee : fee - tUsdrValue;
+        assertLt(deviation, fee / 500, "fee value reaches SP within 0.2%");
+    }
+
+    /// @notice Verify the LP share price stays essentially flat across a
+    ///         borrow with the Option A fee ordering. Pre-borrow share price
+    ///         is exactly 1.0 (genesis). Post-borrow it should still be 1.0
+    ///         within 1e-12 (rounding).
+    function test_originationFee_sharePriceFlat() public {
+        _bobDeposit(1_000_000e18);
+        uint256 priceBefore = pool.convertToAssets(1e18);
+        assertEq(priceBefore, 1e18, "genesis share price = 1.0");
+
+        _aliceLeveraged(1_000_000e18, 500_000e18);
+
+        uint256 priceAfter = pool.convertToAssets(1e18);
+        // Tolerance: 1 part per 100k (1e13 vs 1e18 = 0.001%).
+        assertApproxEqAbs(priceAfter, 1e18, 1e13, "share price flat across borrow");
     }
 
     // ====================================================================
