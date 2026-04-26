@@ -133,7 +133,7 @@ contract S3LiquidationE2ETest is Test {
         _aliceLeveraged(1_000_000e18, 700_000e18);
         uint256 hf0 = pool.calculateHealthFactor(address(adapter), alice, ZERO_DATA);
         // collateral 1M × LT 80% / debt 700k = 1.142...e27
-        assertApproxEqRel(hf0, 1.142_857e27, 0.01e18);
+        assertApproxEqRel(hf0, 1.142857e27, 0.01e18);
 
         // Crash AMFI oracle by 30% → collateral now 700k → HF = 700k×0.8/700k = 0.8 → liquidatable
         _crashOracleBy(3000);

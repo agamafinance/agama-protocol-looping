@@ -87,7 +87,7 @@ contract InterestRateModelTest is Test {
         assertApproxEqAbs(lr80, 0.072e27, 1e22, "80%");
 
         (, uint256 lr95) = _rateAtUtil(0.95e27);
-        assertApproxEqAbs(lr95, 0.470_25e27, 1e22, "95%");
+        assertApproxEqAbs(lr95, 0.47025e27, 1e22, "95%");
     }
 
     // ---- Edge utilizations -------------------------------------------------

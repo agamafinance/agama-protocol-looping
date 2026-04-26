@@ -33,7 +33,10 @@ tab_width = 4
 bracket_spacing = false
 int_types = "long"
 quote_style = "double"
-number_underscore = "thousands"
+# Preserve user-written underscores in numeric literals — avoids local-vs-CI
+# disagreements between forge versions on what "thousands" grouping should
+# look like inside decimal fractions (e.g. 1.142857e27 vs 1.142_857e27).
+number_underscore = "preserve"
 
 [rpc_endpoints]
 rayls_testnet = "${RAYLS_TESTNET_RPC}"
