@@ -76,9 +76,8 @@ contract Deploy is Script {
         MockUSDr usdr = new MockUSDr(deployer);
         MockAMFI amfi = new MockAMFI(deployer, AMFI_APR);
         MockOracle oracle = new MockOracle(deployer, ORACLE_INITIAL);
-        DemoFaucet faucet = new DemoFaucet(
-            deployer, usdr, amfi, FAUCET_USDR_DRIP, FAUCET_AMFI_DRIP, FAUCET_COOLDOWN
-        );
+        DemoFaucet faucet =
+            new DemoFaucet(deployer, usdr, amfi, FAUCET_USDR_DRIP, FAUCET_AMFI_DRIP, FAUCET_COOLDOWN);
 
         // Faucet needs MINTER_ROLE on both mocks so users can drip themselves.
         usdr.grantRole(usdr.MINTER_ROLE(), address(faucet));
@@ -110,17 +109,12 @@ contract Deploy is Script {
 
         // ---- 6. Collectors ---------------------------------------------
         AgamaTreasury treasury = new AgamaTreasury(
-            deployer,
-            IAgamaPool(address(pool)),
-            IAgamaSP(address(sp)),
-            IERC20(address(usdr)),
-            IS_DEMO_MODE
+            deployer, IAgamaPool(address(pool)), IAgamaSP(address(sp)), IERC20(address(usdr)), IS_DEMO_MODE
         );
         AgamaReserveFund rf = new AgamaReserveFund(
             deployer, IAgamaPool(address(pool)), IAgamaSP(address(sp)), IERC20(address(usdr))
         );
-        AgamaFeeCollector feeCollector =
-            new AgamaFeeCollector(deployer, ITreasuryDeposit(address(treasury)));
+        AgamaFeeCollector feeCollector = new AgamaFeeCollector(deployer, ITreasuryDeposit(address(treasury)));
 
         // ---- 7. SettlementVault ----------------------------------------
         AgamaSettlementVault svault = new AgamaSettlementVault(
