@@ -2,19 +2,10 @@
 pragma solidity 0.8.26;
 
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import {IERC4626} from "@openzeppelin/contracts/interfaces/IERC4626.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import {AccessControl} from "@openzeppelin/contracts/access/AccessControl.sol";
 
-/// @notice Minimal LP / SP surfaces the Treasury needs for auto-staking and
-///         orderly withdrawals.
-interface IPoolForTreasury is IERC4626 {
-    // marker — IERC4626 already has deposit/redeem/asset.
-}
-
-interface ISPForTreasury is IERC4626 {
-    function requestWithdraw(uint256 amount) external;
-}
+import {IAgamaPool, IAgamaSP} from "../interfaces/IAgamaCollectors.sol";
 
 /// @title AgamaTreasury
 /// @notice Holds protocol-level reserves. In V1 testnet, every USDr inflow is
@@ -32,8 +23,8 @@ contract AgamaTreasury is AccessControl {
     bytes32 public constant DEPOSITOR_ROLE = keccak256("DEPOSITOR_ROLE");
     bytes32 public constant MANAGER_ROLE = keccak256("MANAGER_ROLE");
 
-    IPoolForTreasury public immutable LP;
-    ISPForTreasury public immutable SP;
+    IAgamaPool public immutable LP;
+    IAgamaSP public immutable SP;
     IERC20 public immutable USDR;
 
     /// @notice Demo-mode immutable. When false (mainnet), `setAutoStakeEnabled`
@@ -60,8 +51,8 @@ contract AgamaTreasury is AccessControl {
 
     constructor(
         address admin,
-        IPoolForTreasury lp,
-        ISPForTreasury sp,
+        IAgamaPool lp,
+        IAgamaSP sp,
         IERC20 usdr,
         bool _isDemoMode
     ) {

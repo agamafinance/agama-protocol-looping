@@ -2,15 +2,10 @@
 pragma solidity 0.8.26;
 
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import {IERC4626} from "@openzeppelin/contracts/interfaces/IERC4626.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import {AccessControl} from "@openzeppelin/contracts/access/AccessControl.sol";
 
-interface IPoolForRF is IERC4626 {}
-
-interface ISPForRF is IERC4626 {
-    function requestWithdraw(uint256 amount) external;
-}
+import {IAgamaPool, IAgamaSP} from "../interfaces/IAgamaCollectors.sol";
 
 /// @title AgamaReserveFund
 /// @notice Bad-debt buffer staked in the Stability Pool. In V1 the RF is
@@ -29,8 +24,8 @@ contract AgamaReserveFund is AccessControl {
 
     bytes32 public constant DEPOSITOR_ROLE = keccak256("DEPOSITOR_ROLE");
 
-    IPoolForRF public immutable LP;
-    ISPForRF public immutable SP;
+    IAgamaPool public immutable LP;
+    IAgamaSP public immutable SP;
     IERC20 public immutable USDR;
 
     event Seeded(uint256 usdrIn, uint256 agTokenMinted, uint256 agaSPMinted);
@@ -41,7 +36,7 @@ contract AgamaReserveFund is AccessControl {
 
     error AmountZero();
 
-    constructor(address admin, IPoolForRF lp, ISPForRF sp, IERC20 usdr) {
+    constructor(address admin, IAgamaPool lp, IAgamaSP sp, IERC20 usdr) {
         LP = lp;
         SP = sp;
         USDR = usdr;

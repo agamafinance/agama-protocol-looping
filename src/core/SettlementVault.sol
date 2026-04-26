@@ -8,19 +8,7 @@ import {AccessControl} from "@openzeppelin/contracts/access/AccessControl.sol";
 import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 
 import {ISettlementVault} from "../interfaces/ISettlementVault.sol";
-
-interface IAgamaPool is IERC4626 {
-    function depositOnBehalf(uint256 assets, address receiver) external returns (uint256 shares);
-}
-
-interface IAgamaSP {
-    function getPastVotes(address account, uint256 timepoint) external view returns (uint256);
-    function getPastTotalSupply(uint256 timepoint) external view returns (uint256);
-}
-
-interface ITreasuryDeposit {
-    function deposit(address token, uint256 amount) external;
-}
+import {IAgamaPool, IAgamaSP, ITreasuryDeposit} from "../interfaces/IAgamaCollectors.sol";
 
 /// @title AgamaSettlementVault
 /// @notice The protocol-specific bridge that turns seized RWA into restored
