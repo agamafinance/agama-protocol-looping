@@ -97,9 +97,22 @@ contract AmFiAdapter is IAssetAdapter, Ownable {
         _;
     }
 
+    /// @dev Per-adapter circuit breaker. Reverts if the oracle hasn't been
+    ///      updated within `ORACLE_STALENESS_MAX` seconds. Applied to write
+    ///      paths that *open new exposure* (deposit collateral, seize) so a
+    ///      silent oracle blocks new positions and new liquidations. Reads
+    ///      and exits (withdraw, repay paths) keep working — users can
+    ///      always reduce or close positions.
+    modifier whenOracleFresh() {
+        if (block.timestamp - oracle.lastUpdate() > ORACLE_STALENESS_MAX) revert OracleStale();
+        _;
+    }
+
     // ---- Position lifecycle (pool-only) ----------------------------------
 
-    function deposit(address user, bytes calldata data) external override onlyPool {
+    /// @notice New collateral. Reverts if oracle is stale (no new positions
+    ///         while the price feed is silent).
+    function deposit(address user, bytes calldata data) external override onlyPool whenOracleFresh {
         uint256 amount = _decodeAmount(data);
         if (amount == 0) revert AmountZero();
         _balances[V1_POSITION_KEY][user] += amount;
@@ -108,6 +121,8 @@ contract AmFiAdapter is IAssetAdapter, Ownable {
         emit Deposited(user, V1_POSITION_KEY, amount);
     }
 
+    /// @notice Exit path — DOES NOT check oracle freshness. Stale oracle
+    ///         must not strand users.
     function withdraw(address user, bytes calldata data) external override onlyPool {
         uint256 amount = _decodeAmount(data);
         if (amount == 0) revert AmountZero();
@@ -121,7 +136,14 @@ contract AmFiAdapter is IAssetAdapter, Ownable {
         emit Withdrawn(user, V1_POSITION_KEY, amount);
     }
 
-    function transferAsset(address from, bytes calldata, address to) external override onlyPool {
+    /// @notice Liquidation seizure. Reverts if oracle is stale (no new
+    ///         liquidations while the price feed is silent).
+    function transferAsset(address from, bytes calldata, address to)
+        external
+        override
+        onlyPool
+        whenOracleFresh
+    {
         uint256 bal = _balances[V1_POSITION_KEY][from];
         if (bal == 0) revert InsufficientPositionBalance();
         _balances[V1_POSITION_KEY][from] = 0;

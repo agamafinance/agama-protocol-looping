@@ -44,7 +44,10 @@ contract Deploy is Script {
     uint256 internal constant FAUCET_AMFI_DRIP = 1_000_000e18;
     uint256 internal constant FAUCET_COOLDOWN = 24 hours;
 
-    bool internal constant IS_DEMO_MODE = true; // testnet only — flip to false for mainnet
+    /// @notice Set to true on testnet, false on mainnet. Locked at deploy.
+    ///         Gates ONLY `LP.fastForwardInterest`. Every other risk
+    ///         parameter is identical between testnet and mainnet.
+    bool internal constant TESTNET_MODE = true;
 
     // ---- Result struct (returned for testability + consumed by addresses.json) ----
 
@@ -85,7 +88,7 @@ contract Deploy is Script {
 
         // ---- 2. LendingPool (deploys DebtToken in its constructor) -----
         AgamaLendingPool pool = new AgamaLendingPool(
-            IERC20(address(usdr)), deployer, "Agama Pool USDr", "agUSDr", IRM.defaults(), IS_DEMO_MODE
+            IERC20(address(usdr)), deployer, "Agama Pool USDr", "agUSDr", IRM.defaults(), TESTNET_MODE
         );
         DebtToken debt = pool.DEBT_TOKEN();
 
@@ -102,14 +105,14 @@ contract Deploy is Script {
         );
 
         // ---- 4. StabilityPool -------------------------------------------
-        AgamaStabilityPool sp = new AgamaStabilityPool(IERC20(address(pool)), deployer, IS_DEMO_MODE);
+        AgamaStabilityPool sp = new AgamaStabilityPool(IERC20(address(pool)), deployer);
 
         // ---- 5. LiquidationProxy ---------------------------------------
         LiquidationProxy proxy = new LiquidationProxy(pool, sp, deployer);
 
         // ---- 6. Collectors ---------------------------------------------
         AgamaTreasury treasury = new AgamaTreasury(
-            deployer, IAgamaPool(address(pool)), IAgamaSP(address(sp)), IERC20(address(usdr)), IS_DEMO_MODE
+            deployer, IAgamaPool(address(pool)), IAgamaSP(address(sp)), IERC20(address(usdr))
         );
         AgamaReserveFund rf = new AgamaReserveFund(
             deployer, IAgamaPool(address(pool)), IAgamaSP(address(sp)), IERC20(address(usdr))
@@ -122,8 +125,7 @@ contract Deploy is Script {
             address(sp),
             IAgamaPool(address(pool)),
             ITreasuryDeposit(address(treasury)),
-            IERC20(address(usdr)),
-            IS_DEMO_MODE
+            IERC20(address(usdr))
         );
 
         // ---- 8. Wire roles ---------------------------------------------
@@ -209,7 +211,7 @@ contract Deploy is Script {
 
         // Build the params object
         string memory p = "params";
-        vm.serializeBool(p, "isDemoMode", IS_DEMO_MODE);
+        vm.serializeBool(p, "testnetMode", TESTNET_MODE);
         vm.serializeUint(p, "maxLTV", MAX_LTV);
         vm.serializeUint(p, "liquidationThreshold", LIQUIDATION_THRESHOLD);
         vm.serializeUint(p, "liquidationBonus", LIQUIDATION_BONUS);

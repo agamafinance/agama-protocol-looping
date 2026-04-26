@@ -24,11 +24,15 @@ interface IFeeCollector {
 /// @title AgamaLendingPool
 /// @notice The protocol's core. An ERC-4626 vault on USDr (its share token IS
 ///         agTOKEN) plus a borrow surface against adapter-managed RWA
-///         collateral. Fees route to a settable `feeRecipient` (FeeCollector
-///         in S5). Liquidation entrypoints are present but stubbed in S2;
-///         full lifecycle wiring lands in S3.
-/// @dev    Interest accrual lives in `ReserveLogic`. The pool reads cash on
-///         hand from its own USDr balance and total debt from `DebtToken`.
+///         collateral.
+/// @dev    V1 design choices:
+///         - Liquidation is INSTANT when HF < 1 (no grace period). Drops the
+///           position-flag staging and `closeLiquidation` cure path. Aave/
+///           Compound-style: oracle dump triggers immediate liquidation.
+///         - The `testnetMode` flag is immutable at deploy; on mainnet it is
+///           set to false and the only function it gates — `fastForwardInterest`
+///           — reverts forever. ALL OTHER risk parameters are identical between
+///           testnet and mainnet (no demo-tuning of grace, timelocks, etc.).
 contract AgamaLendingPool is ERC4626, ILendingPool, AccessControl, Pausable, ReentrancyGuard {
     using SafeERC20 for IERC20;
     using ReserveLogic for ReserveLogic.ReserveData;
@@ -38,16 +42,8 @@ contract AgamaLendingPool is ERC4626, ILendingPool, AccessControl, Pausable, Ree
 
     bytes32 public constant GOVERNOR_ROLE = keccak256("GOVERNOR_ROLE");
     bytes32 public constant PAUSER_ROLE = keccak256("PAUSER_ROLE");
-    /// @notice Granted to actors authorized to drive the liquidation lifecycle:
-    ///         the LiquidationProxy and the StabilityPool both hold this.
     bytes32 public constant LIQUIDATION_PROXY_ROLE = keccak256("LIQUIDATION_PROXY_ROLE");
-    /// @notice Granted to the StabilityPool address. Authorizes `burnDonation`
-    ///         and bypasses `withdrawalsPaused` so the SP can still pull USDr
-    ///         during liquidation events.
     bytes32 public constant STABILITY_POOL_ROLE = keccak256("STABILITY_POOL_ROLE");
-    /// @notice Granted to the SettlementVault. Authorizes `depositOnBehalf`,
-    ///         the ERC-4626 deposit variant where the caller pays USDr but
-    ///         the receiver (typically the SP itself) gets the shares.
     bytes32 public constant SETTLEMENT_VAULT_ROLE = keccak256("SETTLEMENT_VAULT_ROLE");
 
     /// @notice Fee-type tag for the origination fee deducted at borrow time.
@@ -62,14 +58,13 @@ contract AgamaLendingPool is ERC4626, ILendingPool, AccessControl, Pausable, Ree
 
     // ---- Immutables ------------------------------------------------------
 
-    /// @notice The non-transferable scaled debt token. Lives next to the pool
-    ///         and is owned by it (only this contract can mint/burn).
     DebtToken public immutable DEBT_TOKEN;
 
-    /// @notice True only on testnet. When false, the cheat setters
-    ///         (`setLiquidationGracePeriod`, `fastForwardInterest`, …)
-    ///         all revert. Set at construction; never flips.
-    bool public immutable isDemoMode;
+    /// @notice Set to true on testnet, false on mainnet. Locked at deploy.
+    ///         Gates ONLY `fastForwardInterest` (the demo cheat that projects
+    ///         indices forward without waiting). Every other risk parameter
+    ///         is identical mainnet vs testnet.
+    bool public immutable testnetMode;
 
     // ---- Reserve state ---------------------------------------------------
 
@@ -83,39 +78,24 @@ contract AgamaLendingPool is ERC4626, ILendingPool, AccessControl, Pausable, Ree
     uint256 public depositFeeBps;
     uint256 public vaultOpeningFee;
     uint256 public minBorrowAmount;
-    uint256 public liquidationGracePeriod;
     uint256 public supplyCap;
     uint256 public borrowCap;
     bool public withdrawalsPaused;
 
     address public feeRecipient;
-    /// @notice Address of the StabilityPool. Set once via `setStabilityPool`
-    ///         which simultaneously grants both the STABILITY_POOL_ROLE and
-    ///         LIQUIDATION_PROXY_ROLE.
     address public stabilityPool;
-    /// @notice Address of the SettlementVault. Set via `setSettlementVault`,
-    ///         which grants SETTLEMENT_VAULT_ROLE.
     address public settlementVault;
 
-    // ---- User / position storage -----------------------------------------
+    // ---- User storage ----------------------------------------------------
 
     mapping(address user => bool) public vaultOpened;
     mapping(address adapter => bool) public supportedAdapter;
-
-    struct Position {
-        bool isUnderLiquidation;
-        uint256 liquidationStartTime;
-    }
-
-    /// @dev adapter => user => positionKey (V1: constant per adapter)
-    mapping(address => mapping(address => mapping(bytes32 => Position))) internal _positions;
 
     // ---- Bad-debt redistribution (Liquity O(1) accumulator) --------------
 
     /// @notice Cumulative ray-scaled debt-per-collateral attributed to active
     ///         borrowers when liquidations exceed the StabilityPool's
-    ///         capacity. Each borrower owes their `collateral × (LDebt -
-    ///         snap[user])` worth of extra USDr debt.
+    ///         capacity.
     uint256 public bdAccLDebt;
 
     /// @dev adapter => user => snapshot of `bdAccLDebt` at last interaction.
@@ -135,9 +115,7 @@ contract AgamaLendingPool is ERC4626, ILendingPool, AccessControl, Pausable, Ree
     event DonationBurned(address indexed from, uint256 shares);
     event DepositOnBehalf(address indexed caller, address indexed receiver, uint256 assets, uint256 shares);
     event RiskParamSet(bytes32 indexed key, uint256 value);
-    event LiquidationInitiated(address indexed user, address indexed adapter);
-    event LiquidationClosed(address indexed user, address indexed adapter);
-    event LiquidationFinalized(
+    event Liquidated(
         address indexed sp,
         address indexed user,
         address indexed adapter,
@@ -156,22 +134,15 @@ contract AgamaLendingPool is ERC4626, ILendingPool, AccessControl, Pausable, Ree
     error SupplyCapExceeded();
     error BorrowCapExceeded();
     error LiquidityShortfall();
-    error OnlyDemoMode();
     error UnsupportedAdapter();
     error VaultPositionAlreadyOpened();
     error VaultPositionNotOpened();
-    error CannotActUnderLiquidation();
     error HealthFactorTooLow();
     error AmountBelowMinimum();
-    error InvalidFeeRecipient();
-    error NotImplemented();
-    error UserAlreadyUnderLiquidation();
-    error NotUnderLiquidation();
-    error GracePeriodExpired();
-    error GracePeriodNotExpired();
     error DebtNotZero();
     error HealthFactorTooHigh();
     error StabilityPoolNotSet();
+    error OnlyTestnet();
 
     // ---- Construction ----------------------------------------------------
 
@@ -181,21 +152,19 @@ contract AgamaLendingPool is ERC4626, ILendingPool, AccessControl, Pausable, Ree
         string memory name_,
         string memory symbol_,
         IRM.Params memory irmParams_,
-        bool _isDemoMode
+        bool _testnetMode
     ) ERC20(name_, symbol_) ERC4626(usdr) {
         IRM.validate(irmParams_);
         _irmParams = irmParams_;
         _reserve.init();
-        isDemoMode = _isDemoMode;
+        testnetMode = _testnetMode;
 
-        // V1 production risk parameters — identical on testnet and mainnet.
-        // Only timings (gracePeriod, withdrawTimelock) are demo-tunable below.
+        // V1 production risk parameters — IDENTICAL on testnet and mainnet.
         reserveFactorBps = 1000; // 10%
         originationFeeBps = 50; // 50 bps
         depositFeeBps = 0;
         vaultOpeningFee = 0;
         minBorrowAmount = 100e18; // 100 USDr
-        liquidationGracePeriod = 72 hours; // production timing
         supplyCap = type(uint256).max;
         borrowCap = type(uint256).max;
 
@@ -203,7 +172,6 @@ contract AgamaLendingPool is ERC4626, ILendingPool, AccessControl, Pausable, Ree
         _grantRole(GOVERNOR_ROLE, admin);
         _grantRole(PAUSER_ROLE, admin);
 
-        // Deploy the DebtToken paired to this pool
         DEBT_TOKEN = new DebtToken(
             address(this),
             address(usdr),
@@ -229,14 +197,12 @@ contract AgamaLendingPool is ERC4626, ILendingPool, AccessControl, Pausable, Ree
 
     // ---- ERC4626 overrides -----------------------------------------------
 
-    /// @notice Total assets backing agTOKEN: cash on hand + nominal debt outstanding.
     function totalAssets() public view override returns (uint256) {
         uint256 cash = IERC20(asset()).balanceOf(address(this));
         uint256 debt = DEBT_TOKEN.totalSupply();
         return cash + debt;
     }
 
-    /// @dev ERC4626 hook called inside `deposit` / `mint`. Pulls assets from caller.
     function _deposit(address caller, address receiver, uint256 assets, uint256 shares) internal override {
         _reserve.updateState();
         if (assets == 0) revert AmountZero();
@@ -245,7 +211,6 @@ contract AgamaLendingPool is ERC4626, ILendingPool, AccessControl, Pausable, Ree
         if (totalSupply() > supplyCap) revert SupplyCapExceeded();
     }
 
-    /// @dev ERC4626 hook called inside `withdraw` / `redeem`.
     function _withdraw(address caller, address receiver, address owner, uint256 assets, uint256 shares)
         internal
         override
@@ -261,7 +226,6 @@ contract AgamaLendingPool is ERC4626, ILendingPool, AccessControl, Pausable, Ree
 
     // ---- Vault position lifecycle ----------------------------------------
 
-    /// @notice One-time vault opening; collects `vaultOpeningFee` (0 in V1).
     function openVaultPosition() external whenNotPaused {
         if (vaultOpened[msg.sender]) revert VaultPositionAlreadyOpened();
         vaultOpened[msg.sender] = true;
@@ -278,8 +242,6 @@ contract AgamaLendingPool is ERC4626, ILendingPool, AccessControl, Pausable, Ree
         onlySupportedAdapter(adapter)
     {
         if (!vaultOpened[msg.sender]) revert VaultPositionNotOpened();
-        bytes32 key = IAssetAdapter(adapter).getPositionKey(data);
-        if (_positions[adapter][msg.sender][key].isUnderLiquidation) revert CannotActUnderLiquidation();
         _reserve.updateState();
         _materializeRedistribution(adapter, msg.sender);
         IAssetAdapter(adapter).deposit(msg.sender, data);
@@ -292,12 +254,14 @@ contract AgamaLendingPool is ERC4626, ILendingPool, AccessControl, Pausable, Ree
         whenNotPaused
         onlySupportedAdapter(adapter)
     {
-        bytes32 key = IAssetAdapter(adapter).getPositionKey(data);
-        if (_positions[adapter][msg.sender][key].isUnderLiquidation) revert CannotActUnderLiquidation();
         _reserve.updateState();
         _materializeRedistribution(adapter, msg.sender);
 
-        // Health-factor preview: is the post-withdrawal position still healthy?
+        // Health-factor preview when there's still debt outstanding. If oracle
+        // is stale, `getAssetValue` reverts inside the adapter — blocking
+        // partial withdraws while letting full exits work (debt = 0 path
+        // skips the HF check entirely, and `adapter.withdraw` itself doesn't
+        // depend on the oracle).
         uint256 debt = _userDebt(msg.sender);
         if (debt > 0) {
             uint256 totalCollateral = IAssetAdapter(adapter).getAssetValue(msg.sender, data);
@@ -322,45 +286,26 @@ contract AgamaLendingPool is ERC4626, ILendingPool, AccessControl, Pausable, Ree
     {
         if (amount == 0) revert AmountZero();
         if (!vaultOpened[msg.sender]) revert VaultPositionNotOpened();
-        bytes32 key = IAssetAdapter(adapter).getPositionKey(data);
-        if (_positions[adapter][msg.sender][key].isUnderLiquidation) revert CannotActUnderLiquidation();
 
         _reserve.updateState();
         _materializeRedistribution(adapter, msg.sender);
 
-        // Borrow cap on nominal debt
         if (DEBT_TOKEN.totalSupply() + amount > borrowCap) revert BorrowCapExceeded();
-
-        // Min-borrow check
         if (amount < minBorrowAmount) revert AmountBelowMinimum();
 
-        // HF after borrow at adapter MAX_LTV
+        // HF after borrow at adapter MAX_LTV. `getAssetValue` reverts on stale
+        // oracle, so a stale oracle naturally blocks new borrows.
         uint256 collateralValue = IAssetAdapter(adapter).getAssetValue(msg.sender, data);
         uint256 newDebt = _userDebt(msg.sender) + amount;
         uint256 ltBps = IAssetAdapter(adapter).MAX_LTV();
         uint256 hf = _hf(collateralValue, newDebt, ltBps);
         if (hf < HF_LIQUIDATION_THRESHOLD) revert HealthFactorTooLow();
 
-        // Liquidity check
         if (IERC20(asset()).balanceOf(address(this)) < amount) revert LiquidityShortfall();
 
-        // === Origination fee — charged BEFORE the debt mint to prevent the
-        //     fee from leaking value to existing lenders.
-        //
-        //     Why this order matters:
-        //     A debt mint inflates `totalAssets()` (cash + debt) without
-        //     adding shares, so the LP's share price spikes mid-tx. If the
-        //     fee path runs AFTER the mint, the FeeCollector → Treasury
-        //     auto-stake deposits at that inflated share price and acquires
-        //     fewer agTOKEN per USDr, leaving a slice of the fee's value
-        //     captured by pre-existing lenders pro-rata.
-        //
-        //     By charging the fee first, the LP cash dips before the debt
-        //     mint, the share price briefly drops, and Treasury's auto-stake
-        //     catches that dip — getting more shares per USDr. When the debt
-        //     mint then pumps the price up, Treasury rides the appreciation
-        //     pro-rata alongside Bob, neutralizing the leak. End result:
-        //     ~100% of the fee value accrues to the SP via Treasury.
+        // Origination fee charged BEFORE the debt mint. The cash dip → fresh
+        // share-price baseline ensures Treasury's auto-stake captures
+        // ~100% of the fee (no leak to existing lenders).
         uint256 fee = 0;
         if (feeRecipient != address(0)) {
             fee = (amount * originationFeeBps) / BPS_DENOM;
@@ -370,11 +315,7 @@ contract AgamaLendingPool is ERC4626, ILendingPool, AccessControl, Pausable, Ree
             }
         }
 
-        // Mint debt at current usage index. Borrower owes `amount` total —
-        // the fee was prepaid out of the cash they're about to receive.
         DEBT_TOKEN.mint(msg.sender, amount, _reserve.usageIndex);
-
-        // Disburse net to the borrower.
         IERC20(asset()).safeTransfer(msg.sender, amount - fee);
 
         _afterMutation();
@@ -387,10 +328,7 @@ contract AgamaLendingPool is ERC4626, ILendingPool, AccessControl, Pausable, Ree
         onlySupportedAdapter(adapter)
         returns (uint256 paid)
     {
-        // Note: repay is allowed even when isUnderLiquidation == true so the
-        // borrower can cure during the grace period (per V1 doc). Once debt
-        // hits zero, the borrower must still call `closeLiquidation` to clear
-        // the flag.
+        // No oracle dependency — repay is always allowed (exit path).
         IAssetAdapter(adapter).getPositionKey(data); // sanity decode
         _reserve.updateState();
         _materializeRedistribution(adapter, msg.sender);
@@ -407,50 +345,19 @@ contract AgamaLendingPool is ERC4626, ILendingPool, AccessControl, Pausable, Ree
         emit Repay(msg.sender, msg.sender, paid);
     }
 
-    // ---- Liquidation entrypoints (stubs for S3) --------------------------
+    // ---- Liquidation (instant, single function) --------------------------
 
-    function initiateLiquidation(address adapter, address user, bytes calldata data)
-        external
-        onlyRole(LIQUIDATION_PROXY_ROLE)
-    {
-        if (!supportedAdapter[adapter]) revert UnsupportedAdapter();
-        bytes32 key = IAssetAdapter(adapter).getPositionKey(data);
-        Position storage p = _positions[adapter][user][key];
-        if (p.isUnderLiquidation) revert UserAlreadyUnderLiquidation();
-
-        _reserve.updateState();
-        _materializeRedistribution(adapter, user);
-
-        uint256 debt = _userActualDebt(adapter, user);
-        if (debt == 0) revert HealthFactorTooHigh();
-        uint256 collateral = IAssetAdapter(adapter).getAssetValue(user, data);
-        uint256 ltBps = IAssetAdapter(adapter).LIQUIDATION_THRESHOLD();
-        uint256 hf = _hf(collateral, debt, ltBps);
-        if (hf >= HF_LIQUIDATION_THRESHOLD) revert HealthFactorTooHigh();
-
-        p.isUnderLiquidation = true;
-        p.liquidationStartTime = block.timestamp;
-        emit LiquidationInitiated(user, adapter);
-    }
-
-    function closeLiquidation(address adapter, bytes calldata data) external {
-        bytes32 key = IAssetAdapter(adapter).getPositionKey(data);
-        Position storage p = _positions[adapter][msg.sender][key];
-        if (!p.isUnderLiquidation) revert NotUnderLiquidation();
-        if (block.timestamp >= p.liquidationStartTime + liquidationGracePeriod) revert GracePeriodExpired();
-        if (_userDebt(msg.sender) != 0) revert DebtNotZero();
-        delete _positions[adapter][msg.sender][key];
-        emit LiquidationClosed(msg.sender, adapter);
-    }
-
-    /// @notice Finalizes a liquidation post-grace-period. Gated by
-    ///         LIQUIDATION_PROXY_ROLE — both the LiquidationProxy and the
-    ///         StabilityPool hold this role at deploy time. Burns the user's
-    ///         debt, transfers the seized RWA to `stabilityPool` via the
-    ///         adapter, and burns SP shares (donation) to keep the LP's
-    ///         share price flat. Any uncovered loss is redistributed pro-rata
-    ///         across remaining active borrowers.
-    function finalizeLiquidation(address adapter, address user, bytes calldata data)
+    /// @notice Liquidate `user`'s position when their HF is below 1. Single
+    ///         atomic call — no initiate/grace/finalize staging. Burns all
+    ///         their debt, transfers seized RWA to the StabilityPool, and
+    ///         redistributes any uncovered loss across remaining active
+    ///         borrowers.
+    /// @dev    Gated by LIQUIDATION_PROXY_ROLE — both the LiquidationProxy
+    ///         and the StabilityPool hold this role at deploy time. The
+    ///         adapter's stale-oracle check inside `getAssetValue` blocks
+    ///         liquidations when the oracle is stale (per the V1 circuit
+    ///         breaker policy).
+    function liquidate(address adapter, address user, bytes calldata data)
         external
         nonReentrant
         onlyRole(LIQUIDATION_PROXY_ROLE)
@@ -460,18 +367,16 @@ contract AgamaLendingPool is ERC4626, ILendingPool, AccessControl, Pausable, Ree
         address sp = stabilityPool;
         if (sp == address(0)) revert StabilityPoolNotSet();
 
-        bytes32 key = IAssetAdapter(adapter).getPositionKey(data);
-        Position storage p = _positions[adapter][user][key];
-        if (!p.isUnderLiquidation) revert NotUnderLiquidation();
-        if (block.timestamp < p.liquidationStartTime + liquidationGracePeriod) {
-            revert GracePeriodNotExpired();
-        }
-
         _reserve.updateState();
         _materializeRedistribution(adapter, user);
 
         uint256 scaledDebt = DEBT_TOKEN.balanceOf(user);
         if (scaledDebt == 0) revert DebtNotZero();
+
+        uint256 collateralValue = IAssetAdapter(adapter).getAssetValue(user, data);
+        uint256 ltBps = IAssetAdapter(adapter).LIQUIDATION_THRESHOLD();
+        uint256 hf = _hf(collateralValue, scaledDebt, ltBps);
+        if (hf >= HF_LIQUIDATION_THRESHOLD) revert HealthFactorTooHigh();
 
         uint256 spShares = balanceOf(sp);
         uint256 spCapacityAssets = convertToAssets(spShares);
@@ -491,30 +396,22 @@ contract AgamaLendingPool is ERC4626, ILendingPool, AccessControl, Pausable, Ree
         badDebt = scaledDebt - absorbedAssets;
         if (badDebt > 0) _redistributeBadDebt(adapter, badDebt);
 
-        delete _positions[adapter][user][key];
         _afterMutation();
-        emit LiquidationFinalized(sp, user, adapter, scaledDebt, absorbedAssets, badDebt);
+        emit Liquidated(sp, user, adapter, scaledDebt, absorbedAssets, badDebt);
     }
 
     // ---- Protocol-specific extensions (clearly non-standard) -------------
 
     /// @notice Burns `shares` from `from` without releasing any USDr. Used by
-    ///         the StabilityPool during liquidation to absorb a `pegGap` worth
-    ///         of debt that has just been wiped from a borrower. Pairs with a
-    ///         simultaneous `DebtToken.burn` to preserve the totalAssets =
-    ///         cash + debt invariant.
-    /// @dev    NON-STANDARD ERC-4626 extension. Gated by STABILITY_POOL_ROLE.
+    ///         the StabilityPool during liquidation.
     function burnDonation(address from, uint256 shares) external nonReentrant onlyRole(STABILITY_POOL_ROLE) {
         if (shares == 0) revert AmountZero();
         _burn(from, shares);
         emit DonationBurned(from, shares);
     }
 
-    /// @notice ERC-4626 deposit variant where `msg.sender` pays the USDr but
-    ///         `receiver` is credited the shares. Used by the SettlementVault
-    ///         to redeposit redeemed USDr at the StabilityPool's address,
-    ///         restoring the SP's `totalAssets` after a settlement batch.
-    /// @dev    NON-STANDARD ERC-4626 extension. Gated by SETTLEMENT_VAULT_ROLE.
+    /// @notice ERC-4626 deposit variant where `msg.sender` pays USDr but
+    ///         `receiver` is credited the shares. Used by the SettlementVault.
     function depositOnBehalf(uint256 assets, address receiver)
         external
         nonReentrant
@@ -523,7 +420,6 @@ contract AgamaLendingPool is ERC4626, ILendingPool, AccessControl, Pausable, Ree
         returns (uint256 shares)
     {
         if (assets == 0) revert AmountZero();
-        // No deposit fee on this entrypoint — it's protocol-internal flow.
         _reserve.updateState();
         shares = previewDeposit(assets);
         _deposit(msg.sender, receiver, assets, shares);
@@ -532,8 +428,6 @@ contract AgamaLendingPool is ERC4626, ILendingPool, AccessControl, Pausable, Ree
 
     // ---- Views -----------------------------------------------------------
 
-    /// @notice HF for a user/adapter/positionKey, in RAY. `max` if debt is 0.
-    /// @dev    Includes any pending bad-debt redistribution not yet materialized.
     function calculateHealthFactor(address adapter, address user, bytes calldata data)
         external
         view
@@ -552,15 +446,6 @@ contract AgamaLendingPool is ERC4626, ILendingPool, AccessControl, Pausable, Ree
         returns (uint256)
     {
         return _userActualDebt(adapter, user);
-    }
-
-    function getPosition(address adapter, address user, bytes calldata data)
-        external
-        view
-        returns (Position memory)
-    {
-        bytes32 key = IAssetAdapter(adapter).getPositionKey(data);
-        return _positions[adapter][user][key];
     }
 
     function getReserveState() external view returns (ReserveLogic.ReserveData memory) {
@@ -583,9 +468,6 @@ contract AgamaLendingPool is ERC4626, ILendingPool, AccessControl, Pausable, Ree
         emit FeeRecipientSet(recipient);
     }
 
-    /// @notice Set / re-set the StabilityPool. Grants both STABILITY_POOL_ROLE
-    ///         and LIQUIDATION_PROXY_ROLE to the new SP, and revokes from the
-    ///         old one if any.
     function setStabilityPool(address sp) external onlyRole(GOVERNOR_ROLE) {
         address old = stabilityPool;
         if (old != address(0)) {
@@ -600,7 +482,6 @@ contract AgamaLendingPool is ERC4626, ILendingPool, AccessControl, Pausable, Ree
         emit StabilityPoolSet(sp);
     }
 
-    /// @notice Set / re-set the SettlementVault. Grants SETTLEMENT_VAULT_ROLE.
     function setSettlementVault(address vault) external onlyRole(GOVERNOR_ROLE) {
         address old = settlementVault;
         if (old != address(0)) _revokeRole(SETTLEMENT_VAULT_ROLE, old);
@@ -636,29 +517,18 @@ contract AgamaLendingPool is ERC4626, ILendingPool, AccessControl, Pausable, Ree
         emit RiskParamSet("borrowCap", v);
     }
 
-    /// @notice Demo-only override of the liquidation grace period. Reverts on
-    ///         mainnet (where `isDemoMode == false`). Production value is the
-    ///         constructor default (72h).
-    function setLiquidationGracePeriod(uint256 secs) external onlyRole(GOVERNOR_ROLE) {
-        if (!isDemoMode) revert OnlyDemoMode();
-        liquidationGracePeriod = secs;
-        emit RiskParamSet("liquidationGracePeriod", secs);
-    }
-
-    /// @notice Demo cheat: simulate `secondsToSimulate` of interest accrual
-    ///         without waiting. Crystallizes any pending elapsed time first,
-    ///         then advances the indices by the synthetic delta. Reverts on
-    ///         mainnet.
-    /// @dev    Useful in pitches to show agTOKEN appreciation and debt growth
-    ///         on screen in seconds.
-    function fastForwardInterest(uint256 secondsToSimulate) external onlyRole(GOVERNOR_ROLE) {
-        if (!isDemoMode) revert OnlyDemoMode();
+    /// @notice Testnet-only cheat: project the LP's interest indices forward
+    ///         by `secs` seconds at the current rates, without waiting. On
+    ///         mainnet, `testnetMode` is false at deploy and this reverts
+    ///         forever.
+    function fastForwardInterest(uint256 secs) external onlyRole(GOVERNOR_ROLE) {
+        if (!testnetMode) revert OnlyTestnet();
         _reserve.updateState();
-        uint256 incrLiq = (_reserve.currentLiquidityRate * secondsToSimulate) / 365 days;
-        uint256 incrDebt = (_reserve.currentBorrowRate * secondsToSimulate) / 365 days;
+        uint256 incrLiq = (_reserve.currentLiquidityRate * secs) / 365 days;
+        uint256 incrDebt = (_reserve.currentBorrowRate * secs) / 365 days;
         _reserve.liquidityIndex = _reserve.liquidityIndex.rayMul(RAY + incrLiq);
         _reserve.usageIndex = _reserve.usageIndex.rayMul(RAY + incrDebt);
-        emit RiskParamSet("fastForwardInterest", secondsToSimulate);
+        emit RiskParamSet("fastForwardInterest", secs);
     }
 
     function setWithdrawalsPaused(bool paused) external onlyRole(PAUSER_ROLE) {
@@ -676,7 +546,6 @@ contract AgamaLendingPool is ERC4626, ILendingPool, AccessControl, Pausable, Ree
     function setIRMParams(IRM.Params memory p) external onlyRole(GOVERNOR_ROLE) {
         IRM.validate(p);
         _irmParams = p;
-        // Re-update rates against the fresh params.
         _afterMutation();
     }
 
@@ -691,9 +560,6 @@ contract AgamaLendingPool is ERC4626, ILendingPool, AccessControl, Pausable, Ree
         return DEBT_TOKEN.balanceOf(user);
     }
 
-    /// @dev Includes any unmaterialized bad-debt redistribution since the
-    ///      user's last interaction. Use this for HF math; the actual
-    ///      DebtToken balance only reflects materialized state.
     function _userActualDebt(address adapter, address user) internal view returns (uint256) {
         uint256 base = DEBT_TOKEN.balanceOf(user);
         uint256 snapL = _userLDebtSnapshot[adapter][user];
@@ -706,8 +572,6 @@ contract AgamaLendingPool is ERC4626, ILendingPool, AccessControl, Pausable, Ree
         }
     }
 
-    /// @dev Mints any unmaterialized redistribution debt to the user, then
-    ///      bumps their snapshot. Idempotent if accumulator hasn't moved.
     function _materializeRedistribution(address adapter, address user) internal {
         uint256 snapL = _userLDebtSnapshot[adapter][user];
         if (bdAccLDebt <= snapL) return;
@@ -722,10 +586,6 @@ contract AgamaLendingPool is ERC4626, ILendingPool, AccessControl, Pausable, Ree
         }
     }
 
-    /// @dev Bumps the global `bdAccLDebt` accumulator by `badDebt × RAY /
-    ///      totalActiveCollateral`. If no collateral remains anywhere, the
-    ///      bad debt becomes "stuck" — emitted but not redistributed (corner
-    ///      case where the only borrower was just liquidated).
     function _redistributeBadDebt(address adapter, uint256 badDebtAssets) internal {
         uint256 totalColl = IAssetAdapter(adapter).totalInternalBalance();
         if (totalColl == 0) {
@@ -738,7 +598,6 @@ contract AgamaLendingPool is ERC4626, ILendingPool, AccessControl, Pausable, Ree
 
     function _hf(uint256 collateralValue, uint256 debt, uint256 ltBps) internal pure returns (uint256) {
         if (debt == 0) return type(uint256).max;
-        // hf = collateral × ltBps × RAY / (debt × BPS_DENOM)
         return (collateralValue * ltBps * RAY) / (debt * BPS_DENOM);
     }
 
@@ -750,7 +609,6 @@ contract AgamaLendingPool is ERC4626, ILendingPool, AccessControl, Pausable, Ree
 
     function _collectFee(address from, uint256 amount) internal {
         if (feeRecipient == address(0)) {
-            // Hold it on the LendingPool until the FeeCollector is wired (S5).
             IERC20(asset()).safeTransferFrom(from, address(this), amount);
         } else {
             IERC20(asset()).safeTransferFrom(from, feeRecipient, amount);

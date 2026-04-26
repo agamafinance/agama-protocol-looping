@@ -333,30 +333,22 @@ contract S2LendingFlowTest is Test {
         pool.openVaultPosition();
     }
 
-    // ---- 8. Demo-mode gating --------------------------------------------
+    // ---- 8. Testnet-mode gating -----------------------------------------
 
-    function test_isDemoMode_setOnConstruction() public view {
-        assertTrue(pool.isDemoMode(), "testnet pool wired in demo mode");
+    function test_testnetMode_setOnConstruction() public view {
+        assertTrue(pool.testnetMode(), "testnet pool wired in testnet mode");
     }
 
-    function test_setLiquidationGracePeriod_demoMode_works() public {
-        vm.prank(admin);
-        pool.setLiquidationGracePeriod(60);
-        assertEq(pool.liquidationGracePeriod(), 60);
-    }
-
-    function test_setLiquidationGracePeriod_mainnet_reverts() public {
-        // Spin up a mainnet-mode pool and verify the cheat is locked.
+    function test_fastForwardInterest_mainnet_reverts() public {
         AgamaLendingPool mainnet = new AgamaLendingPool(
             IERC20(address(usdr)), admin, "Agama Mainnet", "agMAIN", IRM.defaults(), false
         );
         vm.prank(admin);
-        vm.expectRevert(AgamaLendingPool.OnlyDemoMode.selector);
-        mainnet.setLiquidationGracePeriod(60);
-        assertEq(mainnet.liquidationGracePeriod(), 72 hours);
+        vm.expectRevert(AgamaLendingPool.OnlyTestnet.selector);
+        mainnet.fastForwardInterest(365 days);
     }
 
-    function test_fastForwardInterest_demoMode_growsIndices() public {
+    function test_fastForwardInterest_testnetMode_growsIndices() public {
         _bobDeposits(1_000_000e18);
         _aliceOpens();
         _aliceDepositsCollateral(1_000_000e18);
@@ -373,24 +365,14 @@ contract S2LendingFlowTest is Test {
         assertApproxEqRel(borrowIdx1, borrowIdx0 * 107 / 100, 0.01e18);
     }
 
-    function test_fastForwardInterest_mainnet_reverts() public {
-        AgamaLendingPool mainnet = new AgamaLendingPool(
-            IERC20(address(usdr)), admin, "Agama Mainnet", "agMAIN", IRM.defaults(), false
-        );
-        vm.prank(admin);
-        vm.expectRevert(AgamaLendingPool.OnlyDemoMode.selector);
-        mainnet.fastForwardInterest(365 days);
-    }
-
     // ---- 9. Production parameters round-trip ----------------------------
 
     function test_productionParams_consistent() public view {
-        // Pool params
+        // Pool params (identical mainnet/testnet)
         assertEq(pool.reserveFactorBps(), 1000);
         assertEq(pool.originationFeeBps(), 50);
         assertEq(pool.depositFeeBps(), 0);
         assertEq(pool.vaultOpeningFee(), 0);
-        assertEq(pool.liquidationGracePeriod(), 72 hours);
         // IRM
         IRM.Params memory p = pool.getIRMParams();
         assertEq(p.baseRate, 0.02e27);

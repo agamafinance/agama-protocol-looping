@@ -64,10 +64,6 @@ contract AgamaSettlementVault is ISettlementVault, AccessControl, ReentrancyGuar
     /// @notice The USDr ERC20 — Manager pre-funds this vault, vault forwards.
     IERC20 public immutable USDR;
 
-    /// @notice True only on testnet. Used to gate `setStaleBatchPeriod` so
-    ///         mainnet locks the 60-day default.
-    bool public immutable isDemoMode;
-
     LiquidationSplit public split;
 
     /// @notice Time after `queuedAt` past which `emergencyDistributeInKind`
@@ -94,6 +90,7 @@ contract AgamaSettlementVault is ISettlementVault, AccessControl, ReentrancyGuar
     event EmergencyBatchDistributed(uint256 indexed id);
     event SplitUpdated(uint16 treasuryBps, uint16 redeemBps);
     event StaleBatchPeriodUpdated(uint256 secs);
+    event ManagerReplaced(address indexed oldManager, address indexed newManager);
 
     error UnknownBatch();
     error AlreadyResolved();
@@ -101,7 +98,6 @@ contract AgamaSettlementVault is ISettlementVault, AccessControl, ReentrancyGuar
     error AlreadyClaimed();
     error NoSnapshot();
     error InvalidSplit();
-    error OnlyDemoMode();
     error OnlySP();
     error AmountZero();
 
@@ -110,19 +106,11 @@ contract AgamaSettlementVault is ISettlementVault, AccessControl, ReentrancyGuar
         _;
     }
 
-    constructor(
-        address admin,
-        address sp,
-        IAgamaPool lp,
-        ITreasuryDeposit treasury,
-        IERC20 usdr,
-        bool _isDemoMode
-    ) {
+    constructor(address admin, address sp, IAgamaPool lp, ITreasuryDeposit treasury, IERC20 usdr) {
         SP = sp;
         LP = lp;
         TREASURY = treasury;
         USDR = usdr;
-        isDemoMode = _isDemoMode;
 
         // V1 production split: 200 bps Treasury, 9800 bps SP.
         split = LiquidationSplit({treasuryBps: 200, redeemBps: 9800});
@@ -226,8 +214,15 @@ contract AgamaSettlementVault is ISettlementVault, AccessControl, ReentrancyGuar
     {
         Batch storage b = batches[batchId];
         if (b.id == 0) revert UnknownBatch();
-        if (b.status != Status.Queued) revert AlreadyResolved();
-        if (block.timestamp <= b.queuedAt + staleBatchPeriod) revert NotStaleYet();
+        // Settled batches cannot be claimed in-kind (USDr already distributed
+        // through depositOnBehalf at settle time).
+        if (b.status == Status.Settled) revert AlreadyResolved();
+        // Allow claims either after the stale window OR if governance has
+        // already flipped the batch to EmergencyDistributed via
+        // `forceEmergencySettlement`.
+        if (b.status != Status.EmergencyDistributed && block.timestamp <= b.queuedAt + staleBatchPeriod) {
+            revert NotStaleYet();
+        }
         if (emergencyClaimed[batchId][holder]) revert AlreadyClaimed();
 
         IAgamaSP spv = IAgamaSP(SP);
@@ -249,19 +244,6 @@ contract AgamaSettlementVault is ISettlementVault, AccessControl, ReentrancyGuar
         emit EmergencyClaim(batchId, holder, share);
     }
 
-    /// @notice Final closer for an emergency batch. Anyone can call once the
-    ///         vault's RWA balance for the batch is exhausted (or when gov
-    ///         decides the long tail of dust isn't worth chasing).
-    function finalizeEmergencyBatch(uint256 batchId) external onlyRole(GOVERNOR_ROLE) {
-        Batch storage b = batches[batchId];
-        if (b.id == 0) revert UnknownBatch();
-        if (b.status != Status.Queued) revert AlreadyResolved();
-        if (block.timestamp <= b.queuedAt + staleBatchPeriod) revert NotStaleYet();
-        b.status = Status.EmergencyDistributed;
-        pegGapPendingForSP -= b.pegGap;
-        emit EmergencyBatchDistributed(batchId);
-    }
-
     // ---- Admin -----------------------------------------------------------
 
     function setSplit(LiquidationSplit calldata newSplit) external onlyRole(GOVERNOR_ROLE) {
@@ -272,10 +254,35 @@ contract AgamaSettlementVault is ISettlementVault, AccessControl, ReentrancyGuar
 
     /// @notice Demo-only override of the staleness window. Mainnet is locked
     ///         at the 60-day default.
+    /// @notice Governance-controlled adjustment of the emergency-claim window.
+    ///         Default at deploy is 60 days; tighten or extend via governance
+    ///         vote.
     function setStaleBatchPeriod(uint256 secs) external onlyRole(GOVERNOR_ROLE) {
-        if (!isDemoMode) revert OnlyDemoMode();
         staleBatchPeriod = secs;
         emit StaleBatchPeriodUpdated(secs);
+    }
+
+    /// @notice Governance hot-swap of a manager. Use when a keeper is
+    ///         compromised, inactive, or when rotating ops staff. Strictly
+    ///         atomic — old loses MANAGER_ROLE the same tx the new gains it.
+    function replaceManager(address oldManager, address newManager) external onlyRole(GOVERNOR_ROLE) {
+        _revokeRole(MANAGER_ROLE, oldManager);
+        _grantRole(MANAGER_ROLE, newManager);
+        emit ManagerReplaced(oldManager, newManager);
+    }
+
+    /// @notice Governance escape hatch — bypass the staleBatchPeriod and
+    ///         flip a Queued batch directly to EmergencyDistributed,
+    ///         enabling per-holder `emergencyDistributeInKind` claims.
+    ///         Use when the manager is unreachable but governance can act
+    ///         faster than waiting out the staleness window.
+    function forceEmergencySettlement(uint256 batchId) external onlyRole(GOVERNOR_ROLE) {
+        Batch storage b = batches[batchId];
+        if (b.id == 0) revert UnknownBatch();
+        if (b.status != Status.Queued) revert AlreadyResolved();
+        b.status = Status.EmergencyDistributed;
+        pegGapPendingForSP -= b.pegGap;
+        emit EmergencyBatchDistributed(batchId);
     }
 
     function grantManager(address account) external onlyRole(DEFAULT_ADMIN_ROLE) {

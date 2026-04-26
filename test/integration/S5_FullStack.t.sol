@@ -65,14 +65,13 @@ contract S5FullStackTest is Test {
             IERC20(address(usdr)), admin, "Agama Pool USDr", "agUSDr", IRM.defaults(), true
         );
         adapter = new AmFiAdapter(address(pool), amfi, oracle, admin, 7000, 8000, 500, 24 hours);
-        sp = new AgamaStabilityPool(IERC20(address(pool)), admin, true);
+        sp = new AgamaStabilityPool(IERC20(address(pool)), admin);
         proxy = new LiquidationProxy(pool, sp, admin);
         debt = pool.DEBT_TOKEN();
 
         // ---- Collectors -----------------------------------------------
-        treasury = new AgamaTreasury(
-            admin, IAgamaPool(address(pool)), IAgamaSP(address(sp)), IERC20(address(usdr)), true
-        );
+        treasury =
+            new AgamaTreasury(admin, IAgamaPool(address(pool)), IAgamaSP(address(sp)), IERC20(address(usdr)));
         rf = new AgamaReserveFund(
             admin, IAgamaPool(address(pool)), IAgamaSP(address(sp)), IERC20(address(usdr))
         );
@@ -82,8 +81,7 @@ contract S5FullStackTest is Test {
             address(sp),
             IAgamaPool(address(pool)),
             ITreasuryDeposit(address(treasury)),
-            IERC20(address(usdr)),
-            true
+            IERC20(address(usdr))
         );
 
         // ---- Wire roles ------------------------------------------------
@@ -102,9 +100,9 @@ contract S5FullStackTest is Test {
         proxy.setManager(manager, true);
         svault.grantManager(manager);
 
-        // Demo timing compression
-        pool.setLiquidationGracePeriod(60);
-        sp.setWithdrawTimelockDuration(60);
+        // No timing compression needed: V1 has no grace period and no SP
+        // withdraw timelock — liquidations are instant when HF<1, redeems
+        // are direct ERC-4626.
 
         // Mint
         usdr.mint(bob, 5_000_000e18);
@@ -252,18 +250,14 @@ contract S5FullStackTest is Test {
         _aliceLeveraged(1_000_000e18, 700_000e18);
         _crashOracleBy(3000); // 30% AMFI price drop
 
-        // Liquidation pipeline
-        vm.prank(manager);
-        proxy.initiateLiquidation(address(adapter), alice, ZERO_DATA);
-        skip(61);
-
         uint256 bobAgaSPBefore = IERC20(address(sp)).balanceOf(bob);
         uint256 rfAgaSPBefore = IERC20(address(sp)).balanceOf(address(rf));
         uint256 tAgaSPBefore = IERC20(address(sp)).balanceOf(address(treasury));
         uint256 spPriceBefore = sp.convertToAssets(1e18);
 
+        // V1: instant liquidation when HF < 1 — no initiate/grace/finalize.
         vm.prank(manager);
-        proxy.liquidateBorrower(address(adapter), address(adapter), alice, ZERO_DATA, 0);
+        proxy.liquidate(address(adapter), address(adapter), alice, ZERO_DATA, 0);
 
         // SP totalAssets smoothed by pegGap (no immediate price drop)
         uint256 spPriceMid = sp.convertToAssets(1e18);
@@ -312,10 +306,7 @@ contract S5FullStackTest is Test {
         _crashOracleBy(3000);
 
         vm.prank(manager);
-        proxy.initiateLiquidation(address(adapter), alice, ZERO_DATA);
-        skip(61);
-        vm.prank(manager);
-        proxy.liquidateBorrower(address(adapter), address(adapter), alice, ZERO_DATA, 0);
+        proxy.liquidate(address(adapter), address(adapter), alice, ZERO_DATA, 0);
 
         // Manager goes silent for 61 days — past staleBatchPeriod. We also
         // advance block.number so the ERC20Votes snapshot is unambiguously

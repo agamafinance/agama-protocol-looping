@@ -11,9 +11,8 @@ import {AgamaStabilityPool} from "./StabilityPool.sol";
 ///         liquidations. Holds LIQUIDATION_PROXY_ROLE on the LendingPool and
 ///         MANAGER_ROLE on the StabilityPool. Real human managers hold this
 ///         contract's MANAGER_ROLE.
-/// @dev    Pure pass-through. Centralizing the manager-facing surface here
-///         keeps the LP/SP contracts free of human role plumbing and lets us
-///         swap the proxy out (governance op) without touching either pool.
+/// @dev    V1: liquidations are INSTANT — single `liquidate` call when HF < 1.
+///         No initiate/grace/finalize staging.
 contract LiquidationProxy is AccessControl {
     bytes32 public constant MANAGER_ROLE = keccak256("MANAGER_ROLE");
 
@@ -21,8 +20,7 @@ contract LiquidationProxy is AccessControl {
     AgamaStabilityPool public immutable SP;
 
     event ManagerSet(address indexed account, bool enabled);
-    event LiquidationInitiated(address indexed adapter, address indexed user);
-    event LiquidationFinalized(address indexed adapter, address indexed user);
+    event Liquidated(address indexed adapter, address indexed user);
 
     error AddressZero();
 
@@ -35,18 +33,11 @@ contract LiquidationProxy is AccessControl {
         _grantRole(DEFAULT_ADMIN_ROLE, admin);
     }
 
-    /// @notice Phase 1: flag a position for liquidation; starts the grace period.
-    function initiateLiquidation(address adapter, address user, bytes calldata data)
-        external
-        onlyRole(MANAGER_ROLE)
-    {
-        LP.initiateLiquidation(adapter, user, data);
-        emit LiquidationInitiated(adapter, user);
-    }
-
-    /// @notice Phase 3: post-grace, drives the SP to absorb and the LP to
-    ///         finalize. The SP routes seized RWA into the SettlementVault.
-    function liquidateBorrower(
+    /// @notice Liquidate a borrower whose HF is below 1. Drives the SP to
+    ///         absorb the debt and seize the collateral via `LP.liquidate`,
+    ///         then routes the seized RWA into the SettlementVault for
+    ///         off-chain redemption.
+    function liquidate(
         address poolAdapter,
         address vaultAdapter,
         address user,
@@ -54,7 +45,7 @@ contract LiquidationProxy is AccessControl {
         uint256 minSharesOut
     ) external onlyRole(MANAGER_ROLE) {
         SP.liquidateBorrower(poolAdapter, vaultAdapter, user, data, minSharesOut);
-        emit LiquidationFinalized(poolAdapter, user);
+        emit Liquidated(poolAdapter, user);
     }
 
     // ---- Manager registry ------------------------------------------------

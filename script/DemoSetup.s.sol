@@ -55,8 +55,7 @@ contract DemoSetup is Script {
         // ---- 3. Verification view calls ----
         console.log("");
         console.log("=== Verification ===");
-        console.log("LP isDemoMode             ", pool.isDemoMode());
-        console.log("SP isDemoMode             ", sp.isDemoMode());
+        console.log("LP testnetMode            ", pool.testnetMode());
         console.log("LP totalAssets()          ", pool.totalAssets());
         console.log("LP totalSupply()          ", pool.totalSupply());
         console.log("SP totalAssets()          ", sp.totalAssets());
@@ -68,8 +67,8 @@ contract DemoSetup is Script {
         console.log("SP settlementVault        ", sp.settlementVault());
         console.log("Vault staleBatchPeriod    ", svault.staleBatchPeriod());
         console.log("Vault pegGapPendingForSP  ", svault.pegGapPendingForSP());
-        console.log("LP liquidationGracePeriod ", pool.liquidationGracePeriod());
-        console.log("SP withdrawTimelockDur    ", sp.withdrawTimelockDuration());
+        // No grace period — instant liquidation when HF < 1.
+        // No SP withdraw timelock — direct ERC-4626 redeem.
         console.log("");
         console.log("If LP totalAssets == 100_000e18 and SP totalAssets == 100_000e18,");
         console.log("the RF seed flowed through correctly.");

@@ -27,12 +27,10 @@ contract AgamaTreasury is AccessControl {
     IAgamaSP public immutable SP;
     IERC20 public immutable USDR;
 
-    /// @notice Demo-mode immutable. When false (mainnet), `setAutoStakeEnabled`
-    ///         reverts so the V1 posture is locked at deploy.
-    bool public immutable isDemoMode;
-
     /// @notice When true, every `deposit(USDR, …)` triggers an
-    ///         LP-deposit-then-SP-stake. V1 testnet default = true.
+    ///         LP-deposit-then-SP-stake. V1 default = true. Governance can
+    ///         flip to false to switch to a hold-liquid posture (e.g. for
+    ///         paying ops/audits in V2).
     bool public autoStakeEnabled;
 
     mapping(address token => bool) public supportedTokens;
@@ -47,13 +45,11 @@ contract AgamaTreasury is AccessControl {
 
     error TokenNotSupported();
     error AmountZero();
-    error OnlyDemoMode();
 
-    constructor(address admin, IAgamaPool lp, IAgamaSP sp, IERC20 usdr, bool _isDemoMode) {
+    constructor(address admin, IAgamaPool lp, IAgamaSP sp, IERC20 usdr) {
         LP = lp;
         SP = sp;
         USDR = usdr;
-        isDemoMode = _isDemoMode;
         autoStakeEnabled = true;
 
         _grantRole(DEFAULT_ADMIN_ROLE, admin);
@@ -131,10 +127,9 @@ contract AgamaTreasury is AccessControl {
     }
 
     /// @notice Switch between V1 (auto-stake) and V2 (hold-liquid for ops)
-    ///         postures. Demo-mode-gated for V1; on mainnet the posture is
-    ///         locked at constructor default.
+    ///         postures. Governance-controlled, no time-lock at the contract
+    ///         level — operate it through the multisig / TimelockController.
     function setAutoStakeEnabled(bool enabled) external onlyRole(DEFAULT_ADMIN_ROLE) {
-        if (!isDemoMode) revert OnlyDemoMode();
         autoStakeEnabled = enabled;
         emit AutoStakeFlagSet(enabled);
     }

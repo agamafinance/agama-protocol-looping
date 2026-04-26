@@ -25,6 +25,13 @@ contract MockOracle is Ownable {
         lastUpdate = block.timestamp;
     }
 
+    /// @notice Test-only override of `lastUpdate` so we can exercise the
+    ///         per-adapter staleness circuit breaker without waiting 24h on
+    ///         a real chain. Has no effect on `price`.
+    function setLastUpdate(uint256 ts) external onlyOwner {
+        lastUpdate = ts;
+    }
+
     function setPrice(uint256 newPrice) external onlyOwner {
         if (newPrice == 0) revert ZeroPrice();
         price = newPrice;

@@ -41,7 +41,7 @@ contract S3ExtensionsTest is Test {
             IERC20(address(usdr)), admin, "Agama Pool USDr", "agUSDr", IRM.defaults(), true
         );
         adapter = new AmFiAdapter(address(pool), amfi, oracle, admin, 7000, 8000, 500, 24 hours);
-        sp = new AgamaStabilityPool(IERC20(address(pool)), admin, true);
+        sp = new AgamaStabilityPool(IERC20(address(pool)), admin);
 
         vm.startPrank(admin);
         pool.registerAdapter(address(adapter), true);
@@ -212,7 +212,7 @@ contract S3ExtensionsTest is Test {
         AgamaLendingPool main =
             new AgamaLendingPool(IERC20(address(usdr)), admin, "Mainnet", "M", IRM.defaults(), false);
         vm.prank(admin);
-        vm.expectRevert(AgamaLendingPool.OnlyDemoMode.selector);
+        vm.expectRevert(AgamaLendingPool.OnlyTestnet.selector);
         main.fastForwardInterest(1 days);
     }
 
