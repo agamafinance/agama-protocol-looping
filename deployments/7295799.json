@@ -1,0 +1,27 @@
+{
+  "chainId": 7295799,
+  "contracts": {
+    "AmFiAdapter": "0x40CB409DE1f7F81CeBFdaf26053fff44018Df91b",
+    "DebtToken": "0x163BA7E3750d86046eb12F66802D1073451c1f1E",
+    "Faucet": "0x520D9c689B575F823BB9E2211C4559ff6280D4fE",
+    "FeeCollector": "0xE9B615b94F2F58ee14648f684C279cAf8057516B",
+    "LendingPool": "0x92D96b8cC443B81fBBB8a32358FD445Dd8488973",
+    "LiquidationProxy": "0xfe6De4e644019d68357d8A23f08B4FAfB119e84F",
+    "MockAMFI": "0x78e0AB3F406E7FF1929623e0C344993d93873361",
+    "MockOracle": "0x8cD52AF147Caf8EeC24f0111a86C440DD33FB330",
+    "ReserveFund": "0x53c71f7520E4f389a85b586a4E638B26F106EA46",
+    "SettlementVault": "0xF0062D959B82541b811f79599536D35447CC7e75",
+    "StabilityPool": "0x6B454ACEC8B621F62B6447b94003Aa2dD44dC440",
+    "Treasury": "0x23cCA7B1E4b2afB651CFBcfb0AC6cEB3259770d8",
+    "USDr": "0xF2e739F9cA47b075CB836511A65bAf353DDFe067"
+  },
+  "deployedAt": 1777230161,
+  "params": {
+    "isDemoMode": true,
+    "liquidationBonus": 500,
+    "liquidationThreshold": 8000,
+    "maxLTV": 7000,
+    "originationFee": 50,
+    "reserveFactor": 1000
+  }
+}
