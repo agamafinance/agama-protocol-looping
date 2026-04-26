@@ -11,6 +11,7 @@ import {MockUSDr} from "src/mocks/MockUSDr.sol";
 import {MockAMFI} from "src/mocks/MockAMFI.sol";
 import {MockOracle} from "src/mocks/MockOracle.sol";
 import {InterestRateModel as IRM} from "src/libs/InterestRateModel.sol";
+import {FeeSink} from "test/helpers/FeeSink.sol";
 
 /// @title S2_LendingFlow
 /// @notice End-to-end exercise of the LendingPool + AmFiAdapter wiring:
@@ -20,7 +21,6 @@ contract S2LendingFlowTest is Test {
     address admin = address(0xA11CE);
     address bob = address(0xB0B);
     address alice = address(0xA17CE);
-    address feeRecipient = address(0xFEE);
 
     MockUSDr usdr;
     MockAMFI amfi;
@@ -28,6 +28,7 @@ contract S2LendingFlowTest is Test {
     AgamaLendingPool pool;
     AmFiAdapter adapter;
     DebtToken debt;
+    FeeSink feeSink;
 
     uint256 constant APR_AMFI = 0.16e27; // 16%
     uint256 constant USDR_INITIAL = 10_000_000e18; // 10M (Bob)
@@ -47,10 +48,13 @@ contract S2LendingFlowTest is Test {
         // Adapter — production V1 risk: MAX_LTV 70%, LT 80%, bonus 5%, staleness 24h.
         adapter = new AmFiAdapter(address(pool), amfi, oracle, admin, 7000, 8000, 500, 24 hours);
 
-        // Wire: register adapter, set fee recipient
+        // FeeSink stands in for the real FeeCollector in S2 tests.
+        feeSink = new FeeSink();
+
+        // Wire: register adapter, set fee recipient (FeeSink for tests)
         vm.startPrank(admin);
         pool.registerAdapter(address(adapter), true);
-        pool.setFeeRecipient(feeRecipient);
+        pool.setFeeRecipient(address(feeSink));
         // Mint to actors
         usdr.mint(bob, USDR_INITIAL);
         amfi.mint(alice, AMFI_INITIAL);
@@ -120,7 +124,7 @@ contract S2LendingFlowTest is Test {
         // Alice receives net = 500k - 50bps = 497.5k
         uint256 fee = (500_000e18 * 50) / 10_000;
         assertEq(usdr.balanceOf(alice), 500_000e18 - fee);
-        assertEq(usdr.balanceOf(feeRecipient), fee, "origination fee routed");
+        assertEq(usdr.balanceOf(address(feeSink)), fee, "origination fee routed");
 
         // Debt minted
         assertEq(debt.balanceOf(alice), 500_000e18);

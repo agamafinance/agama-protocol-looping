@@ -17,6 +17,10 @@ import {ReserveLogic} from "../libs/ReserveLogic.sol";
 import {InterestRateModel as IRM} from "../libs/InterestRateModel.sol";
 import {WadRayMath} from "../libs/WadRayMath.sol";
 
+interface IFeeCollector {
+    function collectFee(address token, address from, uint256 amount, bytes32 feeType) external;
+}
+
 /// @title AgamaLendingPool
 /// @notice The protocol's core. An ERC-4626 vault on USDr (its share token IS
 ///         agTOKEN) plus a borrow surface against adapter-managed RWA
@@ -45,6 +49,9 @@ contract AgamaLendingPool is ERC4626, ILendingPool, AccessControl, Pausable, Ree
     ///         the ERC-4626 deposit variant where the caller pays USDr but
     ///         the receiver (typically the SP itself) gets the shares.
     bytes32 public constant SETTLEMENT_VAULT_ROLE = keccak256("SETTLEMENT_VAULT_ROLE");
+
+    /// @notice Fee-type tag for the origination fee deducted at borrow time.
+    bytes32 public constant FEE_ORIGINATION = keccak256("FEE_ORIGINATION");
 
     // ---- Constants -------------------------------------------------------
 
@@ -340,14 +347,20 @@ contract AgamaLendingPool is ERC4626, ILendingPool, AccessControl, Pausable, Ree
         // Mint debt at current usage index
         DEBT_TOKEN.mint(msg.sender, amount, _reserve.usageIndex);
 
-        // Origination fee — charged only when a feeRecipient is wired. If
+        // Origination fee — only charged when a feeRecipient is wired. If
         // unset, no fee is taken at all (so it can't accumulate as silent
         // share-price inflation in the LP). Production deploys must wire the
         // FeeCollector before opening borrows.
+        // The fee path uses the Aave-style approve+collectFee handshake so
+        // the FeeCollector can tag the fee type and forward to Treasury in
+        // one transaction.
         uint256 fee = 0;
         if (feeRecipient != address(0)) {
             fee = (amount * originationFeeBps) / BPS_DENOM;
-            if (fee > 0) IERC20(asset()).safeTransfer(feeRecipient, fee);
+            if (fee > 0) {
+                IERC20(asset()).approve(feeRecipient, fee);
+                IFeeCollector(feeRecipient).collectFee(asset(), address(this), fee, FEE_ORIGINATION);
+            }
         }
         IERC20(asset()).safeTransfer(msg.sender, amount - fee);
 
