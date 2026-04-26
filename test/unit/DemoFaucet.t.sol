@@ -78,10 +78,10 @@ contract DemoFaucetTest is Test {
 
     function test_setDripAmounts_byOwner() public {
         vm.prank(admin);
-        faucet.setDripAmounts(2_000e18, 500e18);
+        faucet.setDripAmounts(2000e18, 500e18);
         vm.prank(bob);
         faucet.drip();
-        assertEq(usdr.balanceOf(bob), 2_000e18);
+        assertEq(usdr.balanceOf(bob), 2000e18);
         assertEq(amfi.balanceOf(bob), 500e18);
     }
 

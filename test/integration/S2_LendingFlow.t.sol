@@ -175,7 +175,7 @@ contract S2LendingFlowTest is Test {
         // Lender growth ≈ 3.15% × 30/365 ≈ 0.259%
         assertGt(debt30, debt0, "debt grew");
         assertGt(share30, share0, "lender share appreciated");
-        assertApproxEqRel(debt30, debt0 * 1_00575 / 100_000, 0.001e18); // 0.1% tolerance
+        assertApproxEqRel(debt30, debt0 * 100_575 / 100_000, 0.001e18); // 0.1% tolerance
         assertApproxEqRel(share30, share0 * 100_259 / 100_000, 0.001e18);
     }
 
@@ -395,8 +395,8 @@ contract S2LendingFlowTest is Test {
         IRM.Params memory p = pool.getIRMParams();
         assertEq(p.baseRate, 0.02e27);
         assertEq(p.slope1, 0.08e27);
-        assertEq(p.slope2, 0.60e27);
-        assertEq(p.optimalUtil, 0.80e27);
+        assertEq(p.slope2, 0.6e27);
+        assertEq(p.optimalUtil, 0.8e27);
         // Adapter risk
         assertEq(adapter.MAX_LTV(), 7000);
         assertEq(adapter.LIQUIDATION_THRESHOLD(), 8000);

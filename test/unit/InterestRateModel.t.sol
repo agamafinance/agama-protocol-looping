@@ -60,34 +60,34 @@ contract InterestRateModelTest is Test {
     }
 
     function test_borrowRate_atKnownUtilizations() public view {
-        (uint256 br30,) = _rateAtUtil(0.30e27);
+        (uint256 br30,) = _rateAtUtil(0.3e27);
         assertApproxEqAbs(br30, 0.05e27, 1e22, "30%");
 
-        (uint256 br50,) = _rateAtUtil(0.50e27);
+        (uint256 br50,) = _rateAtUtil(0.5e27);
         assertApproxEqAbs(br50, 0.07e27, 1e22, "50%");
 
-        (uint256 br70,) = _rateAtUtil(0.70e27);
+        (uint256 br70,) = _rateAtUtil(0.7e27);
         assertApproxEqAbs(br70, 0.09e27, 1e22, "70%");
 
-        (uint256 br80,) = _rateAtUtil(0.80e27);
-        assertApproxEqAbs(br80, 0.10e27, 1e22, "80% (kink)");
+        (uint256 br80,) = _rateAtUtil(0.8e27);
+        assertApproxEqAbs(br80, 0.1e27, 1e22, "80% (kink)");
 
-        (uint256 br90,) = _rateAtUtil(0.90e27);
-        assertApproxEqAbs(br90, 0.40e27, 1e22, "90%");
+        (uint256 br90,) = _rateAtUtil(0.9e27);
+        assertApproxEqAbs(br90, 0.4e27, 1e22, "90%");
 
         (uint256 br95,) = _rateAtUtil(0.95e27);
         assertApproxEqAbs(br95, 0.55e27, 1e22, "95%");
     }
 
     function test_lenderRate_atKnownUtilizations() public view {
-        (, uint256 lr30) = _rateAtUtil(0.30e27);
+        (, uint256 lr30) = _rateAtUtil(0.3e27);
         assertApproxEqAbs(lr30, 0.0135e27, 1e22, "30%");
 
-        (, uint256 lr80) = _rateAtUtil(0.80e27);
+        (, uint256 lr80) = _rateAtUtil(0.8e27);
         assertApproxEqAbs(lr80, 0.072e27, 1e22, "80%");
 
         (, uint256 lr95) = _rateAtUtil(0.95e27);
-        assertApproxEqAbs(lr95, 0.47025e27, 1e22, "95%");
+        assertApproxEqAbs(lr95, 0.470_25e27, 1e22, "95%");
     }
 
     // ---- Edge utilizations -------------------------------------------------
@@ -103,7 +103,7 @@ contract InterestRateModelTest is Test {
     function test_borrowRate_atFullUtil_capped() public view {
         // u = RAY → borrow = base + slope1 + slope2 = 2% + 8% + 60% = 70%
         uint256 br = h.borrowRate(P, RAY);
-        assertApproxEqAbs(br, 0.70e27, 1e22);
+        assertApproxEqAbs(br, 0.7e27, 1e22);
     }
 
     function test_lenderRate_zeroUtil_isZero() public view {
@@ -133,7 +133,7 @@ contract InterestRateModelTest is Test {
 
     function test_lenderRate_rejectsHugeReserveFactor() public {
         vm.expectRevert(IRM.InvalidReserveFactor.selector);
-        h.lenderRate(0.10e27, 0.80e27, 10_001);
+        h.lenderRate(0.1e27, 0.8e27, 10_001);
     }
 
     // ---- Monotonicity fuzz (borrowRate non-decreasing in u) ---------------

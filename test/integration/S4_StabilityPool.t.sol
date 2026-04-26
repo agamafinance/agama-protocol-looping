@@ -21,7 +21,8 @@ contract S4StabilityPoolTest is Test {
 
     function setUp() public {
         usdr = new MockUSDr(admin);
-        pool = new AgamaLendingPool(IERC20(address(usdr)), admin, "Agama Pool", "agUSDr", IRM.defaults(), true);
+        pool =
+            new AgamaLendingPool(IERC20(address(usdr)), admin, "Agama Pool", "agUSDr", IRM.defaults(), true);
         sp = new AgamaStabilityPool(IERC20(address(pool)), admin, true);
 
         vm.startPrank(admin);

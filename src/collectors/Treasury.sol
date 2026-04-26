@@ -49,13 +49,7 @@ contract AgamaTreasury is AccessControl {
     error AmountZero();
     error OnlyDemoMode();
 
-    constructor(
-        address admin,
-        IAgamaPool lp,
-        IAgamaSP sp,
-        IERC20 usdr,
-        bool _isDemoMode
-    ) {
+    constructor(address admin, IAgamaPool lp, IAgamaSP sp, IERC20 usdr, bool _isDemoMode) {
         LP = lp;
         SP = sp;
         USDR = usdr;

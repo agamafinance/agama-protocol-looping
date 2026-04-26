@@ -52,7 +52,7 @@ contract AgamaStabilityPool is ERC4626, ERC20Votes, AccessControl, ReentrancyGua
     /// @notice Time the user must wait between `requestWithdraw` and `redeem`.
     uint256 public withdrawTimelockDuration; // production: 30 minutes
     /// @notice Window after `readyAt` during which `redeem` must be executed.
-    uint256 public withdrawTimelockDelay;    // production: 2 days
+    uint256 public withdrawTimelockDelay; // production: 2 days
 
     // ---- State -----------------------------------------------------------
 
@@ -225,7 +225,8 @@ contract AgamaStabilityPool is ERC4626, ERC20Votes, AccessControl, ReentrancyGua
         address sv = settlementVault;
         if (sv == address(0)) revert SettlementVaultNotSet();
         rwa.safeTransfer(sv, seized);
-        ISettlementVault(sv).handleSeizure(address(rwa), vaultAdapter, data, seized, absorbedAssets, minSharesOut);
+        ISettlementVault(sv)
+            .handleSeizure(address(rwa), vaultAdapter, data, seized, absorbedAssets, minSharesOut);
 
         emit BorrowerLiquidated(user, address(rwa), data, absorbedAssets, seized);
     }

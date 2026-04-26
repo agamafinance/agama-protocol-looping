@@ -78,7 +78,7 @@ contract ReserveLogicTest is Test {
         // 80% utilization → borrow 10%, lender 7.2% at rf=10%
         h.updateRates(P, 200e18, 800e18, 1000);
         (,, uint256 lr, uint256 br,) = h.snapshot();
-        assertApproxEqAbs(br, 0.10e27, 1e22);
+        assertApproxEqAbs(br, 0.1e27, 1e22);
         assertApproxEqAbs(lr, 0.072e27, 1e22);
     }
 
@@ -93,7 +93,7 @@ contract ReserveLogicTest is Test {
         vm.warp(t0 + SECONDS_PER_YEAR);
 
         // Borrow index ≈ 1.10 (10% APR, linear)
-        assertApproxEqAbs(h.getNormalizedDebt(), 1.10e27, 1e22);
+        assertApproxEqAbs(h.getNormalizedDebt(), 1.1e27, 1e22);
         // Liquidity index ≈ 1.072 (7.2% APR)
         assertApproxEqAbs(h.getNormalizedIncome(), 1.072e27, 1e22);
     }
@@ -142,7 +142,7 @@ contract ReserveLogicTest is Test {
         // For r=10%: 1.1025 vs 1.10 single step → 25 bps relative drift.
         uint256 borrowed = h.getNormalizedDebt();
         // Expect ≈ 1.1025e27 (compound) vs 1.10e27 (one-shot linear)
-        assertGt(borrowed, 1.10e27);
+        assertGt(borrowed, 1.1e27);
         assertLt(borrowed, 1.105e27);
     }
 }

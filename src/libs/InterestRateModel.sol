@@ -34,8 +34,8 @@ library InterestRateModel {
     function defaults() internal pure returns (Params memory p) {
         p.baseRate = 0.02e27;
         p.slope1 = 0.08e27;
-        p.slope2 = 0.60e27;
-        p.optimalUtil = 0.80e27;
+        p.slope2 = 0.6e27;
+        p.optimalUtil = 0.8e27;
     }
 
     /// @notice Sanity-check a parameter set; reverts on malformed input.
@@ -88,12 +88,11 @@ library InterestRateModel {
     }
 
     /// @notice Convenience wrapper returning (borrow, lender) at once.
-    function getRates(
-        Params memory p,
-        uint256 liquidityCash,
-        uint256 borrowed,
-        uint256 reserveFactorBps
-    ) internal pure returns (uint256 br, uint256 lr) {
+    function getRates(Params memory p, uint256 liquidityCash, uint256 borrowed, uint256 reserveFactorBps)
+        internal
+        pure
+        returns (uint256 br, uint256 lr)
+    {
         uint256 u = utilization(liquidityCash, borrowed);
         br = borrowRate(p, u);
         lr = lenderRate(br, u, reserveFactorBps);

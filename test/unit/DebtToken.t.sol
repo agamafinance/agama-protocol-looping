@@ -75,7 +75,7 @@ contract DebtTokenTest is Test {
 
     function test_burn_capsAtUserBalance() public {
         _mint(alice, 100e18);
-        _burn(alice, 1_000e18);
+        _burn(alice, 1000e18);
         assertEq(dt.balanceOf(alice), 0);
         assertEq(dt.scaledBalanceOf(alice), 0);
     }
@@ -83,32 +83,32 @@ contract DebtTokenTest is Test {
     // ---- Index growth → balanceOf increases, scaled stays ----------------
 
     function test_indexGrowth_increasesBalanceOf_scaledUntouched() public {
-        _mint(alice, 1_000e18);
+        _mint(alice, 1000e18);
         uint256 scaledBefore = dt.scaledBalanceOf(alice);
 
         // Index grows 10% (approx 10% interest accrued since mint)
         pool.setIndex(1.1e27);
 
         assertEq(dt.scaledBalanceOf(alice), scaledBefore, "scaled must not move");
-        assertEq(dt.balanceOf(alice), 1_100e18, "nominal grew with index");
-        assertEq(dt.totalSupply(), 1_100e18);
+        assertEq(dt.balanceOf(alice), 1100e18, "nominal grew with index");
+        assertEq(dt.totalSupply(), 1100e18);
     }
 
     // ---- Mint at higher index → fewer scaled units --------------------------
 
     function test_mintAtHigherIndex_storesProportionalScaled() public {
         // Index = 1.0: mint 1000 → scaled 1000
-        _mint(alice, 1_000e18);
-        assertEq(dt.scaledBalanceOf(alice), 1_000e18);
+        _mint(alice, 1000e18);
+        assertEq(dt.scaledBalanceOf(alice), 1000e18);
 
         // Index now 2.0: minting another 1000 nominal → scaled adds 500
         pool.setIndex(2e27);
-        _mint(alice, 1_000e18);
+        _mint(alice, 1000e18);
 
         // scaled = 1000 (initial) + 500 = 1500
-        assertEq(dt.scaledBalanceOf(alice), 1_500e18);
+        assertEq(dt.scaledBalanceOf(alice), 1500e18);
         // balanceOf = 1500 × 2.0 = 3000
-        assertEq(dt.balanceOf(alice), 3_000e18);
+        assertEq(dt.balanceOf(alice), 3000e18);
     }
 
     // ---- Non-transferable contract ---------------------------------------

@@ -34,8 +34,8 @@ contract MocksTest is Test {
 
     function test_usdr_mint_byMinter() public {
         vm.prank(admin);
-        usdr.mint(bob, 1_000e18);
-        assertEq(usdr.balanceOf(bob), 1_000e18);
+        usdr.mint(bob, 1000e18);
+        assertEq(usdr.balanceOf(bob), 1000e18);
     }
 
     function test_usdr_mint_unauthorized_reverts() public {
@@ -105,7 +105,7 @@ contract MocksTest is Test {
     function test_amfi_setAccrual_unauthorizedReverts() public {
         vm.prank(bob);
         vm.expectRevert();
-        amfi.setAccrual(0.20e27);
+        amfi.setAccrual(0.2e27);
     }
 
     // ---- Oracle ------------------------------------------------------------

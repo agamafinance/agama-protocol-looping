@@ -43,7 +43,13 @@ contract DebtToken is IERC20, IERC20Metadata {
         _;
     }
 
-    constructor(address pool, address underlying, string memory name_, string memory symbol_, uint8 decimals_) {
+    constructor(
+        address pool,
+        address underlying,
+        string memory name_,
+        string memory symbol_,
+        uint8 decimals_
+    ) {
         POOL = pool;
         UNDERLYING_ASSET = underlying;
         _name = name_;
@@ -112,7 +118,11 @@ contract DebtToken is IERC20, IERC20Metadata {
     /// @dev    `amountScaled = amount.rayDiv(index)`. Half-up rounding is
     ///         applied via the WadRayMath library.
     /// @return amountScaled The scaled amount minted (for the caller's books).
-    function mint(address user, uint256 amount, uint256 index) external onlyPool returns (uint256 amountScaled) {
+    function mint(address user, uint256 amount, uint256 index)
+        external
+        onlyPool
+        returns (uint256 amountScaled)
+    {
         if (amount == 0) revert AmountZero();
         amountScaled = amount.rayDiv(index);
         _scaledBalances[user] += amountScaled;
@@ -124,7 +134,11 @@ contract DebtToken is IERC20, IERC20Metadata {
     /// @notice Burn `amount` of nominal debt from `user`.
     /// @dev    Caps at the user's full scaled balance to handle the "repay max"
     ///         pattern where `amount` may slightly exceed nominal due to rounding.
-    function burn(address user, uint256 amount, uint256 index) external onlyPool returns (uint256 amountScaled) {
+    function burn(address user, uint256 amount, uint256 index)
+        external
+        onlyPool
+        returns (uint256 amountScaled)
+    {
         if (amount == 0) revert AmountZero();
         uint256 userScaled = _scaledBalances[user];
         amountScaled = amount.rayDiv(index);

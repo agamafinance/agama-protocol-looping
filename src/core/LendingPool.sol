@@ -190,12 +190,12 @@ contract AgamaLendingPool is ERC4626, ILendingPool, AccessControl, Pausable, Ree
 
         // V1 production risk parameters — identical on testnet and mainnet.
         // Only timings (gracePeriod, withdrawTimelock) are demo-tunable below.
-        reserveFactorBps = 1000;            // 10%
-        originationFeeBps = 50;             // 50 bps
+        reserveFactorBps = 1000; // 10%
+        originationFeeBps = 50; // 50 bps
         depositFeeBps = 0;
         vaultOpeningFee = 0;
-        minBorrowAmount = 100e18;           // 100 USDr
-        liquidationGracePeriod = 72 hours;  // production timing
+        minBorrowAmount = 100e18; // 100 USDr
+        liquidationGracePeriod = 72 hours; // production timing
         supplyCap = type(uint256).max;
         borrowCap = type(uint256).max;
 
@@ -450,7 +450,9 @@ contract AgamaLendingPool is ERC4626, ILendingPool, AccessControl, Pausable, Ree
         bytes32 key = IAssetAdapter(adapter).getPositionKey(data);
         Position storage p = _positions[adapter][user][key];
         if (!p.isUnderLiquidation) revert NotUnderLiquidation();
-        if (block.timestamp < p.liquidationStartTime + liquidationGracePeriod) revert GracePeriodNotExpired();
+        if (block.timestamp < p.liquidationStartTime + liquidationGracePeriod) {
+            revert GracePeriodNotExpired();
+        }
 
         _reserve.updateState();
         _materializeRedistribution(adapter, user);
@@ -531,7 +533,11 @@ contract AgamaLendingPool is ERC4626, ILendingPool, AccessControl, Pausable, Ree
         return _hf(collateral, debt, ltBps);
     }
 
-    function getPositionScaledDebt(address adapter, address user, bytes calldata) external view returns (uint256) {
+    function getPositionScaledDebt(address adapter, address user, bytes calldata)
+        external
+        view
+        returns (uint256)
+    {
         return _userActualDebt(adapter, user);
     }
 

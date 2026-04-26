@@ -209,9 +209,8 @@ contract S3ExtensionsTest is Test {
     // ====================================================================
 
     function test_fastForwardInterest_stillDemoGated() public {
-        AgamaLendingPool main = new AgamaLendingPool(
-            IERC20(address(usdr)), admin, "Mainnet", "M", IRM.defaults(), false
-        );
+        AgamaLendingPool main =
+            new AgamaLendingPool(IERC20(address(usdr)), admin, "Mainnet", "M", IRM.defaults(), false);
         vm.prank(admin);
         vm.expectRevert(AgamaLendingPool.OnlyDemoMode.selector);
         main.fastForwardInterest(1 days);

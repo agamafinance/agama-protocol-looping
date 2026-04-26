@@ -91,7 +91,11 @@ library ReserveLogic {
 
     // ---- Internal helpers -------------------------------------------------
 
-    function _projectIndex(uint256 index, uint256 ratePerYear, uint256 elapsed) private pure returns (uint256) {
+    function _projectIndex(uint256 index, uint256 ratePerYear, uint256 elapsed)
+        private
+        pure
+        returns (uint256)
+    {
         // increment = rate × elapsed / SECONDS_PER_YEAR (RAY)
         uint256 increment = (ratePerYear * elapsed) / SECONDS_PER_YEAR;
         return index.rayMul(RAY + increment);

@@ -27,7 +27,9 @@ contract LiquidationProxy is AccessControl {
     error AddressZero();
 
     constructor(AgamaLendingPool lp, AgamaStabilityPool sp, address admin) {
-        if (address(lp) == address(0) || address(sp) == address(0) || admin == address(0)) revert AddressZero();
+        if (address(lp) == address(0) || address(sp) == address(0) || admin == address(0)) {
+            revert AddressZero();
+        }
         LP = lp;
         SP = sp;
         _grantRole(DEFAULT_ADMIN_ROLE, admin);

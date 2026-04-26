@@ -47,11 +47,11 @@ contract AgamaSettlementVault is ISettlementVault, AccessControl, ReentrancyGuar
     struct Batch {
         uint256 id;
         address rwaToken;
-        uint256 rwaAmount;       // total seized RWA held by this contract
-        uint256 pegGap;          // USDr the SP is owed back (= absorbedAssets at finalize)
+        uint256 rwaAmount; // total seized RWA held by this contract
+        uint256 pegGap; // USDr the SP is owed back (= absorbedAssets at finalize)
         Status status;
         uint64 queuedAt;
-        uint64 snapshotBlock;    // block.number at handleSeizure — used by emergency path
+        uint64 snapshotBlock; // block.number at handleSeizure — used by emergency path
         uint64 settledAt;
     }
 
@@ -86,7 +86,9 @@ contract AgamaSettlementVault is ISettlementVault, AccessControl, ReentrancyGuar
     ///         smooth across the redemption window.
     uint256 public override pegGapPendingForSP;
 
-    event BatchQueued(uint256 indexed id, address rwaToken, uint256 rwaAmount, uint256 pegGap, uint256 snapshotBlock);
+    event BatchQueued(
+        uint256 indexed id, address rwaToken, uint256 rwaAmount, uint256 pegGap, uint256 snapshotBlock
+    );
     event BatchSettled(uint256 indexed id, uint256 usdrReceived, uint256 toTreasury, uint256 toSP);
     event EmergencyClaim(uint256 indexed id, address indexed holder, uint256 rwaAmount);
     event EmergencyBatchDistributed(uint256 indexed id);
@@ -161,7 +163,11 @@ contract AgamaSettlementVault is ISettlementVault, AccessControl, ReentrancyGuar
     ///         pre-approved this vault for `usdrReceived` USDr. The vault
     ///         pulls it, then routes `treasuryBps` to Treasury and the rest
     ///         to the SP via `LP.depositOnBehalf`.
-    function settleRedemption(uint256 batchId, uint256 usdrReceived) external nonReentrant onlyRole(MANAGER_ROLE) {
+    function settleRedemption(uint256 batchId, uint256 usdrReceived)
+        external
+        nonReentrant
+        onlyRole(MANAGER_ROLE)
+    {
         Batch storage b = batches[batchId];
         if (b.id == 0) revert UnknownBatch();
         if (b.status != Status.Queued) revert AlreadyResolved();
@@ -213,7 +219,11 @@ contract AgamaSettlementVault is ISettlementVault, AccessControl, ReentrancyGuar
     /// @param batchId The batch in question.
     /// @param holder  agaSP holder claiming. Anyone can trigger on behalf of
     ///                the holder; the funds always go to `holder`.
-    function emergencyDistributeInKind(uint256 batchId, address holder) external nonReentrant returns (uint256 share) {
+    function emergencyDistributeInKind(uint256 batchId, address holder)
+        external
+        nonReentrant
+        returns (uint256 share)
+    {
         Batch storage b = batches[batchId];
         if (b.id == 0) revert UnknownBatch();
         if (b.status != Status.Queued) revert AlreadyResolved();

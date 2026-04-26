@@ -214,7 +214,11 @@ contract S3ERC4626ComplianceTest is Test {
 
     event Deposit(address indexed sender, address indexed owner, uint256 assets, uint256 shares);
     event Withdraw(
-        address indexed sender, address indexed receiver, address indexed owner, uint256 assets, uint256 shares
+        address indexed sender,
+        address indexed receiver,
+        address indexed owner,
+        uint256 assets,
+        uint256 shares
     );
 
     function test_deposit_emitsERC4626DepositEvent() public {
