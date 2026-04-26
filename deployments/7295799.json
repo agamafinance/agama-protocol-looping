@@ -1,27 +1,27 @@
 {
   "chainId": 7295799,
   "contracts": {
-    "AmFiAdapter": "0x40CB409DE1f7F81CeBFdaf26053fff44018Df91b",
-    "DebtToken": "0x163BA7E3750d86046eb12F66802D1073451c1f1E",
-    "Faucet": "0x520D9c689B575F823BB9E2211C4559ff6280D4fE",
-    "FeeCollector": "0xE9B615b94F2F58ee14648f684C279cAf8057516B",
-    "LendingPool": "0x92D96b8cC443B81fBBB8a32358FD445Dd8488973",
-    "LiquidationProxy": "0xfe6De4e644019d68357d8A23f08B4FAfB119e84F",
-    "MockAMFI": "0x78e0AB3F406E7FF1929623e0C344993d93873361",
-    "MockOracle": "0x8cD52AF147Caf8EeC24f0111a86C440DD33FB330",
-    "ReserveFund": "0x53c71f7520E4f389a85b586a4E638B26F106EA46",
-    "SettlementVault": "0xF0062D959B82541b811f79599536D35447CC7e75",
-    "StabilityPool": "0x6B454ACEC8B621F62B6447b94003Aa2dD44dC440",
-    "Treasury": "0x23cCA7B1E4b2afB651CFBcfb0AC6cEB3259770d8",
-    "USDr": "0xF2e739F9cA47b075CB836511A65bAf353DDFe067"
+    "AmFiAdapter": "0xF9dC483AcB3000000c5fA8F9577BCb20bC473466",
+    "DebtToken": "0x884Cb0e601748e359B18B4c0CDafcE9E428948AF",
+    "Faucet": "0x381C1F1153a1cacB8151c1e1c82E401F8E633C6d",
+    "FeeCollector": "0x4140a587387069365688b281523Feef3f5843fd0",
+    "LendingPool": "0x2f712E6588C54dD995295B7e34411779CcC0075e",
+    "LiquidationProxy": "0x30A7321FA55904B270729d515A6D95B4AcEB9A18",
+    "MockAMFI": "0xf2Db2114b62157D96a383f57De2221F8A5C00f7F",
+    "MockOracle": "0x534eC51fd74405433e1388a2907b1949BfD89D2e",
+    "ReserveFund": "0x7aDf137A51E67427404dabC35F01E92e5e910208",
+    "SettlementVault": "0x76cbf132fe4beB132e9eB35d5A0cC6450306bffc",
+    "StabilityPool": "0x48C5d92d50AcD644CCFAf931b98E86542Ef3B7A3",
+    "Treasury": "0xB74bEEe8f4b871E049082038Cc4c55d52b200A7d",
+    "USDr": "0xe52958da496cc0D3A0c652692112D5519d3bBC63"
   },
-  "deployedAt": 1777230161,
+  "deployedAt": 1777239075,
   "params": {
-    "isDemoMode": true,
     "liquidationBonus": 500,
     "liquidationThreshold": 8000,
     "maxLTV": 7000,
     "originationFee": 50,
-    "reserveFactor": 1000
+    "reserveFactor": 1000,
+    "testnetMode": true
   }
 }

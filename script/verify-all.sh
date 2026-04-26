@@ -20,19 +20,19 @@ COMMON_ARGS=(
 
 # Constructor args precomputed via `cast abi-encode`.
 DEPLOYER_ADDR=0xf6d3C9Ed2115A5197F96f6189F6D63B51022Fe16
-USDR_ADDR=0xF2e739F9cA47b075CB836511A65bAf353DDFe067
-AMFI_ADDR=0x78e0AB3F406E7FF1929623e0C344993d93873361
-ORACLE_ADDR=0x8cD52AF147Caf8EeC24f0111a86C440DD33FB330
-FAUCET_ADDR=0x520D9c689B575F823BB9E2211C4559ff6280D4fE
-POOL_ADDR=0x92D96b8cC443B81fBBB8a32358FD445Dd8488973
-DEBT_ADDR=0x163BA7E3750d86046eb12F66802D1073451c1f1E
-ADAPTER_ADDR=0x40CB409DE1f7F81CeBFdaf26053fff44018Df91b
-SP_ADDR=0x6B454ACEC8B621F62B6447b94003Aa2dD44dC440
-PROXY_ADDR=0xfe6De4e644019d68357d8A23f08B4FAfB119e84F
-SVAULT_ADDR=0xF0062D959B82541b811f79599536D35447CC7e75
-TREASURY_ADDR=0x23cCA7B1E4b2afB651CFBcfb0AC6cEB3259770d8
-RF_ADDR=0x53c71f7520E4f389a85b586a4E638B26F106EA46
-FEECOLLECTOR_ADDR=0xE9B615b94F2F58ee14648f684C279cAf8057516B
+USDR_ADDR=0xe52958da496cc0D3A0c652692112D5519d3bBC63
+AMFI_ADDR=0xf2Db2114b62157D96a383f57De2221F8A5C00f7F
+ORACLE_ADDR=0x534eC51fd74405433e1388a2907b1949BfD89D2e
+FAUCET_ADDR=0x381C1F1153a1cacB8151c1e1c82E401F8E633C6d
+POOL_ADDR=0x2f712E6588C54dD995295B7e34411779CcC0075e
+DEBT_ADDR=0x884Cb0e601748e359B18B4c0CDafcE9E428948AF
+ADAPTER_ADDR=0xF9dC483AcB3000000c5fA8F9577BCb20bC473466
+SP_ADDR=0x48C5d92d50AcD644CCFAf931b98E86542Ef3B7A3
+PROXY_ADDR=0x30A7321FA55904B270729d515A6D95B4AcEB9A18
+SVAULT_ADDR=0x76cbf132fe4beB132e9eB35d5A0cC6450306bffc
+TREASURY_ADDR=0xB74bEEe8f4b871E049082038Cc4c55d52b200A7d
+RF_ADDR=0x7aDf137A51E67427404dabC35F01E92e5e910208
+FEECOLLECTOR_ADDR=0x4140a587387069365688b281523Feef3f5843fd0
 
 verify() {
     local label="$1" addr="$2" path="$3" args="$4"
@@ -41,7 +41,7 @@ verify() {
     forge verify-contract "${COMMON_ARGS[@]}" \
         --constructor-args "$args" \
         "$addr" "$path" \
-        || echo "❌ $label failed"
+        || echo "$label failed"
 }
 
 USDR_ARGS=$(cast abi-encode "constructor(address)" $DEPLOYER_ADDR)
@@ -50,18 +50,19 @@ ORACLE_ARGS=$(cast abi-encode "constructor(address,uint256)" $DEPLOYER_ADDR 1000
 FAUCET_ARGS=$(cast abi-encode "constructor(address,address,address,uint256,uint256,uint256)" $DEPLOYER_ADDR $USDR_ADDR $AMFI_ADDR 1000000000000000000000000 1000000000000000000000000 86400)
 DEBT_ARGS=$(cast abi-encode "constructor(address,address,string,string,uint8)" $POOL_ADDR $USDR_ADDR "Agama Debt mUSDr" "agDEBT-mUSDr" 18)
 ADAPTER_ARGS=$(cast abi-encode "constructor(address,address,address,address,uint256,uint256,uint256,uint256)" $POOL_ADDR $AMFI_ADDR $ORACLE_ADDR $DEPLOYER_ADDR 7000 8000 500 86400)
-SP_ARGS=$(cast abi-encode "constructor(address,address,bool)" $POOL_ADDR $DEPLOYER_ADDR true)
+SP_ARGS=$(cast abi-encode "constructor(address,address)" $POOL_ADDR $DEPLOYER_ADDR)
 PROXY_ARGS=$(cast abi-encode "constructor(address,address,address)" $POOL_ADDR $SP_ADDR $DEPLOYER_ADDR)
-TREASURY_ARGS=$(cast abi-encode "constructor(address,address,address,address,bool)" $DEPLOYER_ADDR $POOL_ADDR $SP_ADDR $USDR_ADDR true)
+TREASURY_ARGS=$(cast abi-encode "constructor(address,address,address,address)" $DEPLOYER_ADDR $POOL_ADDR $SP_ADDR $USDR_ADDR)
 RF_ARGS=$(cast abi-encode "constructor(address,address,address,address)" $DEPLOYER_ADDR $POOL_ADDR $SP_ADDR $USDR_ADDR)
 FC_ARGS=$(cast abi-encode "constructor(address,address)" $DEPLOYER_ADDR $TREASURY_ADDR)
-SVAULT_ARGS=$(cast abi-encode "constructor(address,address,address,address,address,bool)" $DEPLOYER_ADDR $SP_ADDR $POOL_ADDR $TREASURY_ADDR $USDR_ADDR true)
+SVAULT_ARGS=$(cast abi-encode "constructor(address,address,address,address,address)" $DEPLOYER_ADDR $SP_ADDR $POOL_ADDR $TREASURY_ADDR $USDR_ADDR)
 POOL_ARGS=$(cast abi-encode "constructor(address,address,string,string,(uint256,uint256,uint256,uint256),bool)" \
     $USDR_ADDR $DEPLOYER_ADDR "Agama Pool USDr" agUSDr \
     '(20000000000000000000000000,80000000000000000000000000,600000000000000000000000000,800000000000000000000000000)' true)
 
 verify USDr            $USDR_ADDR         src/mocks/MockUSDr.sol:MockUSDr             "$USDR_ARGS"
 verify MockAMFI        $AMFI_ADDR         src/mocks/MockAMFI.sol:MockAMFI             "$AMFI_ARGS"
+verify MockOracle      $ORACLE_ADDR       src/mocks/MockOracle.sol:MockOracle         "$ORACLE_ARGS"
 verify DemoFaucet      $FAUCET_ADDR       src/mocks/DemoFaucet.sol:DemoFaucet         "$FAUCET_ARGS"
 verify LendingPool     $POOL_ADDR         src/core/LendingPool.sol:AgamaLendingPool   "$POOL_ARGS"
 verify DebtToken       $DEBT_ADDR         src/core/DebtToken.sol:DebtToken            "$DEBT_ARGS"
