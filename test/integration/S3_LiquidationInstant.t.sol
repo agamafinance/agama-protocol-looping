@@ -133,14 +133,14 @@ contract S3LiquidationInstantTest is Test {
         _stake(bob, 2_000_000e18);
         // Alice opens vault and deposits collateral but doesn't borrow.
         // SP validates the position has collateral (yes), then LP.liquidate
-        // sees zero debt and reverts with DebtNotZero.
+        // sees zero debt and reverts with NoDebtToLiquidate.
         vm.startPrank(alice);
         pool.openVaultPosition();
         amfi.approve(address(adapter), 100_000e18);
         pool.depositAsset(address(adapter), abi.encode(uint256(100_000e18)));
         vm.stopPrank();
 
-        vm.expectRevert(AgamaLendingPool.DebtNotZero.selector);
+        vm.expectRevert(AgamaLendingPool.NoDebtToLiquidate.selector);
         vm.prank(manager);
         proxy.liquidate(address(adapter), address(adapter), alice, ZERO_DATA, 0);
     }

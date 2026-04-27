@@ -139,10 +139,11 @@ contract AgamaLendingPool is ERC4626, ILendingPool, AccessControl, Pausable, Ree
     error VaultPositionNotOpened();
     error HealthFactorTooLow();
     error AmountBelowMinimum();
-    error DebtNotZero();
+    error NoDebtToLiquidate();
     error HealthFactorTooHigh();
     error StabilityPoolNotSet();
     error OnlyTestnet();
+    error BpsExceedsDenom();
 
     // ---- Construction ----------------------------------------------------
 
@@ -371,7 +372,7 @@ contract AgamaLendingPool is ERC4626, ILendingPool, AccessControl, Pausable, Ree
         _materializeRedistribution(adapter, user);
 
         uint256 scaledDebt = DEBT_TOKEN.balanceOf(user);
-        if (scaledDebt == 0) revert DebtNotZero();
+        if (scaledDebt == 0) revert NoDebtToLiquidate();
 
         uint256 collateralValue = IAssetAdapter(adapter).getAssetValue(user, data);
         uint256 ltBps = IAssetAdapter(adapter).LIQUIDATION_THRESHOLD();
@@ -381,6 +382,10 @@ contract AgamaLendingPool is ERC4626, ILendingPool, AccessControl, Pausable, Ree
         uint256 spShares = balanceOf(sp);
         uint256 spCapacityAssets = convertToAssets(spShares);
         absorbedAssets = scaledDebt < spCapacityAssets ? scaledDebt : spCapacityAssets;
+        // ERC-4626 rounding: convertToShares(convertToAssets(N)) may equal N-1.
+        // When SP burns its full capacity, this can leave 1 wei of agTOKEN
+        // shares against zero asset backing — economically inert (SP is
+        // soulbound, dust cannot be transferred or skimmed).
         uint256 sharesToBurn = convertToShares(absorbedAssets);
 
         if (sharesToBurn > 0) {
@@ -491,13 +496,13 @@ contract AgamaLendingPool is ERC4626, ILendingPool, AccessControl, Pausable, Ree
     }
 
     function setReserveFactor(uint256 bps) external onlyRole(GOVERNOR_ROLE) {
-        require(bps <= BPS_DENOM, "bps");
+        if (bps > BPS_DENOM) revert BpsExceedsDenom();
         reserveFactorBps = bps;
         emit RiskParamSet("reserveFactorBps", bps);
     }
 
     function setOriginationFee(uint256 bps) external onlyRole(GOVERNOR_ROLE) {
-        require(bps <= BPS_DENOM, "bps");
+        if (bps > BPS_DENOM) revert BpsExceedsDenom();
         originationFeeBps = bps;
         emit RiskParamSet("originationFeeBps", bps);
     }

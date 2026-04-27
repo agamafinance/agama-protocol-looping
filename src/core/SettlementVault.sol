@@ -252,8 +252,6 @@ contract AgamaSettlementVault is ISettlementVault, AccessControl, ReentrancyGuar
         emit SplitUpdated(newSplit.treasuryBps, newSplit.redeemBps);
     }
 
-    /// @notice Demo-only override of the staleness window. Mainnet is locked
-    ///         at the 60-day default.
     /// @notice Governance-controlled adjustment of the emergency-claim window.
     ///         Default at deploy is 60 days; tighten or extend via governance
     ///         vote.
@@ -285,6 +283,10 @@ contract AgamaSettlementVault is ISettlementVault, AccessControl, ReentrancyGuar
         emit EmergencyBatchDistributed(batchId);
     }
 
+    /// @notice Bootstrap-only grant of MANAGER_ROLE. Use for the *initial*
+    ///         keeper at deploy time. Subsequent rotations MUST go through
+    ///         `replaceManager` to preserve the atomic-swap discipline (no
+    ///         two-managers-active gap).
     function grantManager(address account) external onlyRole(DEFAULT_ADMIN_ROLE) {
         _grantRole(MANAGER_ROLE, account);
     }

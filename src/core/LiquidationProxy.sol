@@ -20,7 +20,9 @@ contract LiquidationProxy is AccessControl {
     AgamaStabilityPool public immutable SP;
 
     event ManagerSet(address indexed account, bool enabled);
-    event Liquidated(address indexed adapter, address indexed user);
+    event Liquidated(
+        address indexed poolAdapter, address indexed vaultAdapter, address indexed user, uint256 minSharesOut
+    );
 
     error AddressZero();
 
@@ -45,7 +47,7 @@ contract LiquidationProxy is AccessControl {
         uint256 minSharesOut
     ) external onlyRole(MANAGER_ROLE) {
         SP.liquidateBorrower(poolAdapter, vaultAdapter, user, data, minSharesOut);
-        emit Liquidated(poolAdapter, user);
+        emit Liquidated(poolAdapter, vaultAdapter, user, minSharesOut);
     }
 
     // ---- Manager registry ------------------------------------------------

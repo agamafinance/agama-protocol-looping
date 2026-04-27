@@ -48,6 +48,7 @@ contract AgamaStabilityPool is ERC4626, ERC20Votes, AccessControl, ReentrancyGua
     mapping(address => uint256) public depositBlock;
 
     event SettlementVaultSet(address indexed vault);
+    event ManagerSet(address indexed account, bool enabled);
     event BorrowerLiquidated(
         address indexed user, address indexed rwaToken, bytes data, uint256 absorbedAssets, uint256 seized
     );
@@ -151,6 +152,7 @@ contract AgamaStabilityPool is ERC4626, ERC20Votes, AccessControl, ReentrancyGua
     function setManager(address account, bool enabled) external onlyRole(GOVERNOR_ROLE) {
         if (enabled) _grantRole(MANAGER_ROLE, account);
         else _revokeRole(MANAGER_ROLE, account);
+        emit ManagerSet(account, enabled);
     }
 
     // ---- Soulbound enforcement (override _update) ------------------------

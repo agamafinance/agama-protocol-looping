@@ -8,13 +8,13 @@ import {AccessControl} from "@openzeppelin/contracts/access/AccessControl.sol";
 import {IAgamaPool, IAgamaSP} from "../interfaces/IAgamaCollectors.sol";
 
 /// @title AgamaTreasury
-/// @notice Holds protocol-level reserves. In V1 testnet, every USDr inflow is
+/// @notice Holds protocol-level reserves. In V1, every USDr inflow is
 ///         immediately deposited into the LendingPool and staked into the
 ///         StabilityPool — so the Treasury earns alongside other agaSP
 ///         holders pro-rata, increasing SP depth without paying out as
 ///         individual rewards. The auto-stake hook is gated by
-///         `autoStakeEnabled`, which can be flipped (in demo mode) to a
-///         "hold-liquid" V2 mainnet posture for paying ops/audits.
+///         `autoStakeEnabled`, which governance can flip to a hold-liquid
+///         posture (e.g. for paying ops/audits) without code changes.
 /// @dev    Withdrawals from the SP are direct ERC-4626 redeems (no timelock,
 ///         per the V1 D2 refactor).
 contract AgamaTreasury is AccessControl {

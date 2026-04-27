@@ -119,4 +119,17 @@ contract CollectorWithdrawTest is Test {
 
         assertGt(usdr.balanceOf(recipient), usdrBefore, "USDr to recipient");
     }
+
+    // ---- Phase A: _seeded guard on RF.seed --------------------------
+
+    function test_rf_seed_secondCall_reverts() public {
+        // setUp already called rf.seed(100k). Calling again must revert.
+        vm.startPrank(admin);
+        usdr.mint(admin, 1_000e18);
+        usdr.approve(address(rf), 1_000e18);
+        vm.expectRevert(AgamaReserveFund.AlreadySeeded.selector);
+        rf.seed(1_000e18);
+        vm.stopPrank();
+        assertTrue(rf.seeded(), "seeded flag set");
+    }
 }

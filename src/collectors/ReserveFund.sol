@@ -29,6 +29,9 @@ contract AgamaReserveFund is AccessControl {
     IAgamaSP public immutable SP;
     IERC20 public immutable USDR;
 
+    /// @dev Tripped on the first successful `seed`. Subsequent calls revert.
+    bool public seeded;
+
     event Seeded(uint256 usdrIn, uint256 agTokenMinted, uint256 agaSPMinted);
     event Deposited(address indexed from, uint256 amount);
     event AutoStaked(uint256 usdrIn, uint256 agTokenMinted, uint256 agaSPMinted);
@@ -36,6 +39,7 @@ contract AgamaReserveFund is AccessControl {
     event WithdrawCompleted(address indexed to, uint256 usdrAmount);
 
     error AmountZero();
+    error AlreadySeeded();
 
     constructor(address admin, IAgamaPool lp, IAgamaSP sp, IERC20 usdr) {
         LP = lp;
@@ -45,12 +49,14 @@ contract AgamaReserveFund is AccessControl {
         _grantRole(GOVERNOR_ROLE, admin);
     }
 
-    /// @notice One-shot seed at TGE. Callable by admin. Pulls `amount` USDr
-    ///         from msg.sender (admin's wallet, funded by Rayls grant) and
-    ///         stakes it directly into the SP. Emits `Seeded` with the
-    ///         resulting agaSP shares.
+    /// @notice One-shot seed at TGE. Callable by admin exactly once. Pulls
+    ///         `amount` USDr from msg.sender (admin's wallet, funded by the
+    ///         Rayls grant) and stakes it directly into the SP. Subsequent
+    ///         top-ups must use `deposit` (DEPOSITOR_ROLE).
     function seed(uint256 amount) external onlyRole(DEFAULT_ADMIN_ROLE) {
+        if (seeded) revert AlreadySeeded();
         if (amount == 0) revert AmountZero();
+        seeded = true;
         uint256 before = USDR.balanceOf(address(this));
         USDR.safeTransferFrom(msg.sender, address(this), amount);
         uint256 received = USDR.balanceOf(address(this)) - before;
