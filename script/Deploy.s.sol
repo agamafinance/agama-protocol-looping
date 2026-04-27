@@ -8,6 +8,7 @@ import {MockUSDr} from "src/mocks/MockUSDr.sol";
 import {MockAMFI} from "src/mocks/MockAMFI.sol";
 import {MockOracle} from "src/mocks/MockOracle.sol";
 import {DemoFaucet} from "src/mocks/DemoFaucet.sol";
+import {SplitFaucet} from "src/mocks/SplitFaucet.sol";
 import {AgamaLendingPool} from "src/core/LendingPool.sol";
 import {AgamaStabilityPool} from "src/core/StabilityPool.sol";
 import {AgamaSettlementVault} from "src/core/SettlementVault.sol";
@@ -56,6 +57,7 @@ contract Deploy is Script {
         address amfi;
         address oracle;
         address faucet;
+        address splitFaucet;
         address pool;
         address debtToken;
         address adapter;
@@ -82,9 +84,10 @@ contract Deploy is Script {
         DemoFaucet faucet =
             new DemoFaucet(deployer, usdr, amfi, FAUCET_USDR_DRIP, FAUCET_AMFI_DRIP, FAUCET_COOLDOWN);
 
-        // Faucet needs MINTER_ROLE on both mocks so users can drip themselves.
-        usdr.grantRole(usdr.MINTER_ROLE(), address(faucet));
-        amfi.grantRole(amfi.MINTER_ROLE(), address(faucet));
+        // The mocks expose a public unrestricted mint() — anyone can self-mint
+        // test tokens, including this faucet contract. No grantRole needed.
+        SplitFaucet splitFaucet =
+            new SplitFaucet(deployer, usdr, amfi, FAUCET_USDR_DRIP, FAUCET_AMFI_DRIP, 0);
 
         // ---- 2. LendingPool (deploys DebtToken in its constructor) -----
         AgamaLendingPool pool = new AgamaLendingPool(
@@ -158,6 +161,7 @@ contract Deploy is Script {
             amfi: address(amfi),
             oracle: address(oracle),
             faucet: address(faucet),
+            splitFaucet: address(splitFaucet),
             pool: address(pool),
             debtToken: address(debt),
             adapter: address(adapter),
@@ -181,6 +185,7 @@ contract Deploy is Script {
         console.log("MockAMFI         ", a.amfi);
         console.log("MockOracle       ", a.oracle);
         console.log("DemoFaucet       ", a.faucet);
+        console.log("SplitFaucet      ", a.splitFaucet);
         console.log("LendingPool      ", a.pool);
         console.log("DebtToken        ", a.debtToken);
         console.log("AmFiAdapter      ", a.adapter);
@@ -199,6 +204,7 @@ contract Deploy is Script {
         vm.serializeAddress(c, "MockAMFI", a.amfi);
         vm.serializeAddress(c, "MockOracle", a.oracle);
         vm.serializeAddress(c, "Faucet", a.faucet);
+        vm.serializeAddress(c, "SplitFaucet", a.splitFaucet);
         vm.serializeAddress(c, "LendingPool", a.pool);
         vm.serializeAddress(c, "DebtToken", a.debtToken);
         vm.serializeAddress(c, "AmFiAdapter", a.adapter);

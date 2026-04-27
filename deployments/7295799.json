@@ -1,31 +1,28 @@
 {
   "chainId": 7295799,
   "contracts": {
-    "AmFiAdapter": "0xF9dC483AcB3000000c5fA8F9577BCb20bC473466",
-    "DebtToken": "0x884Cb0e601748e359B18B4c0CDafcE9E428948AF",
-    "Faucet": "0x381C1F1153a1cacB8151c1e1c82E401F8E633C6d",
-    "FeeCollector": "0x4140a587387069365688b281523Feef3f5843fd0",
-    "LendingPool": "0x2f712E6588C54dD995295B7e34411779CcC0075e",
-    "LiquidationProxy": "0x30A7321FA55904B270729d515A6D95B4AcEB9A18",
-    "MockAMFI": "0xf2Db2114b62157D96a383f57De2221F8A5C00f7F",
-    "MockOracle": "0x534eC51fd74405433e1388a2907b1949BfD89D2e",
-    "ReserveFund": "0x96B233d79CC2C4011FC7C93697A186369B38B853",
-    "SettlementVault": "0x4920426C0F298B3f9B92073193Afa4cc7Ec85442",
-    "StabilityPool": "0x48C5d92d50AcD644CCFAf931b98E86542Ef3B7A3",
-    "Treasury": "0x31eD9f328213a9e515bfa970BD745D67093Dc610",
-    "USDr": "0xe52958da496cc0D3A0c652692112D5519d3bBC63"
+    "AmFiAdapter": "0xfbAF52f46ED8E529289f1e6c90B7735c2756f007",
+    "DebtToken": "0xF6467F72138ACA31bD2cCE8D65aA684144d88755",
+    "Faucet": "0xC387Ac278C62655AD38EdAd73aE75A254913884B",
+    "FeeCollector": "0x7A5B6De35BC1Eb142461f631F1355eDDAE5e5F00",
+    "LendingPool": "0xeeA0D4A279C19B02c27c34a6daB3f20a9A7E2253",
+    "LiquidationProxy": "0x479d2b5067fe95BFbA1356DfC4E35E7404E07962",
+    "MockAMFI": "0xAd677C70cDef8D3247A059C962cD26e56eDeC370",
+    "MockOracle": "0xc5B4a178042013252cbC253135325b62802cc683",
+    "ReserveFund": "0x8bF3d0CeE013DE8750b07C0C803EE088dA5e2516",
+    "SettlementVault": "0x9524F26f5E2537b16844A9fB5787853BD990E3A3",
+    "SplitFaucet": "0xc81801c87128Eb7691B1CdA53C18a6a6AE911d2b",
+    "StabilityPool": "0x32De79544A1BF5d0b4914F7Ff9626C0CEfdd5B44",
+    "Treasury": "0xF5735b4E7Bd9cc56955A4B7e9Eddc28005A5A242",
+    "USDr": "0x14800741698994a5fa46ac83c232bF6079CdD316"
   },
-  "deployedAt": 1777239075,
+  "deployedAt": 1777287553,
   "params": {
     "liquidationBonus": 500,
     "liquidationThreshold": 8000,
     "maxLTV": 7000,
-    "minBorrowAmount": "1e18",
     "originationFee": 50,
     "reserveFactor": 1000,
     "testnetMode": true
-  },
-  "sourceAheadOfLive": {
-    "note": "Source on main is ahead of the live contracts at the addresses above. The post-audit hardening (commits f622629 / 1d4216c / 1894e80) has NOT been redeployed yet, pending USDr top-up from the Rayls team. The live contracts are functionally equivalent for the demo flow but missing: _decimalsOffset=6 on LP (inflation attack mitigation), forceApprove patterns, sweepDust on Vault, replaceManager input validation, setStaleBatchPeriod bounds, setSplit redeemBps floor, AmFiAdapter constructor bound checks, the seeded guard on RF.seed, and the renamed NoDebtToLiquidate error. Plan: cascade redeploy at next funded window."
   }
 }

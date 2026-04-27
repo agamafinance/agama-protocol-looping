@@ -5,7 +5,6 @@ import {Test} from "forge-std/Test.sol";
 import {MockUSDr} from "src/mocks/MockUSDr.sol";
 import {MockAMFI} from "src/mocks/MockAMFI.sol";
 import {MockOracle} from "src/mocks/MockOracle.sol";
-import {IAccessControl} from "@openzeppelin/contracts/access/IAccessControl.sol";
 
 contract MocksTest is Test {
     address admin = address(0xA11CE);
@@ -32,19 +31,11 @@ contract MocksTest is Test {
         assertEq(amfi.decimals(), 18);
     }
 
-    function test_usdr_mint_byMinter() public {
-        vm.prank(admin);
+    function test_usdr_mint_publicAnyone() public {
+        // Public unrestricted mint (testnet mock).
+        vm.prank(bob);
         usdr.mint(bob, 1000e18);
         assertEq(usdr.balanceOf(bob), 1000e18);
-    }
-
-    function test_usdr_mint_unauthorized_reverts() public {
-        bytes32 minterRole = usdr.MINTER_ROLE();
-        vm.expectRevert(
-            abi.encodeWithSelector(IAccessControl.AccessControlUnauthorizedAccount.selector, bob, minterRole)
-        );
-        vm.prank(bob);
-        usdr.mint(bob, 1e18);
     }
 
     function test_usdr_burn_self() public {

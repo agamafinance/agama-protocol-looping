@@ -24,12 +24,8 @@ contract DemoFaucetTest is Test {
         amfi = new MockAMFI(admin, 0.16e27);
         faucet = new DemoFaucet(admin, usdr, amfi, USDR_DRIP, AMFI_DRIP, COOLDOWN);
 
-        // grant MINTER_ROLE to faucet
-        bytes32 minter = usdr.MINTER_ROLE();
-        vm.startPrank(admin);
-        usdr.grantRole(minter, address(faucet));
-        amfi.grantRole(minter, address(faucet));
-        vm.stopPrank();
+        // MockUSDr.mint is public unrestricted; MockAMFI.mint is also public.
+        // The faucet still uses the same .mint() ABI — no role grant needed.
     }
 
     function test_drip_mintsToCaller() public {

@@ -69,7 +69,8 @@ contract MockAMFI is ERC20, AccessControl {
         emit PricePerShareSet(newPrice, block.timestamp);
     }
 
-    function mint(address to, uint256 amount) external onlyRole(MINTER_ROLE) {
+    /// @notice Public unrestricted mint. Testnet mock only.
+    function mint(address to, uint256 amount) external {
         _mint(to, amount);
     }
 
