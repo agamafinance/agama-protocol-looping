@@ -174,6 +174,40 @@ contract S7GovernanceHatchesTest is Test {
         // No revert means it passed.
     }
 
+    // ---- Phase C: sweepDust -----------------------------------------
+
+    function test_sweepDust_transfersResidualToRecipient() public {
+        // Send stuck USDr to the vault directly.
+        uint256 stuck = 123e18;
+        vm.startPrank(admin);
+        usdr.mint(admin, stuck);
+        usdr.transfer(address(svault), stuck);
+        vm.stopPrank();
+
+        address recipient = address(0xCAFE);
+        uint256 before_ = usdr.balanceOf(recipient);
+
+        vm.prank(admin);
+        uint256 swept = svault.sweepDust(IERC20(address(usdr)), recipient);
+
+        assertEq(swept, stuck, "swept = vault balance");
+        assertEq(usdr.balanceOf(recipient) - before_, stuck, "recipient credited");
+        assertEq(usdr.balanceOf(address(svault)), 0, "vault drained");
+    }
+
+    function test_sweepDust_unauthorized_reverts() public {
+        vm.prank(bob);
+        vm.expectRevert();
+        svault.sweepDust(IERC20(address(usdr)), bob);
+    }
+
+    function test_sweepDust_zeroBalance_returnsZero() public {
+        // Vault has no USDr (no settlements run in this test).
+        vm.prank(admin);
+        uint256 swept = svault.sweepDust(IERC20(address(usdr)), admin);
+        assertEq(swept, 0);
+    }
+
     // ---- 2. forceEmergencySettlement bypasses the 60-day window -----
 
     function _triggerLiquidation() internal {

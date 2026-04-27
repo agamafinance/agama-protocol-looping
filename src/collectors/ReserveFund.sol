@@ -79,9 +79,9 @@ contract AgamaReserveFund is AccessControl {
     }
 
     function _stakeUSDr(uint256 amount) internal returns (uint256 agShares, uint256 agaSP) {
-        USDR.approve(address(LP), amount);
+        SafeERC20.forceApprove(USDR, address(LP), amount);
         agShares = LP.deposit(amount, address(this));
-        IERC20(address(LP)).approve(address(SP), agShares);
+        SafeERC20.forceApprove(IERC20(address(LP)), address(SP), agShares);
         agaSP = SP.deposit(agShares, address(this));
     }
 

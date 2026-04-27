@@ -89,9 +89,9 @@ contract AgamaTreasury is AccessControl {
     }
 
     function _autoStake(uint256 amount) internal {
-        USDR.approve(address(LP), amount);
+        SafeERC20.forceApprove(USDR, address(LP), amount);
         uint256 agShares = LP.deposit(amount, address(this));
-        IERC20(address(LP)).approve(address(SP), agShares);
+        SafeERC20.forceApprove(IERC20(address(LP)), address(SP), agShares);
         uint256 agaSPShares = SP.deposit(agShares, address(this));
         emit AutoStaked(amount, agShares, agaSPShares);
     }

@@ -91,6 +91,7 @@ contract AgamaSettlementVault is ISettlementVault, AccessControl, ReentrancyGuar
     event SplitUpdated(uint16 treasuryBps, uint16 redeemBps);
     event StaleBatchPeriodUpdated(uint256 secs);
     event ManagerReplaced(address indexed oldManager, address indexed newManager);
+    event DustSwept(address indexed token, address indexed to, uint256 amount);
 
     error UnknownBatch();
     error AlreadyResolved();
@@ -188,11 +189,11 @@ contract AgamaSettlementVault is ISettlementVault, AccessControl, ReentrancyGuar
         uint256 toSP = usdrReceived - toTreasury;
 
         if (toTreasury > 0) {
-            USDR.approve(address(TREASURY), toTreasury);
+            SafeERC20.forceApprove(USDR, address(TREASURY), toTreasury);
             TREASURY.deposit(address(USDR), toTreasury);
         }
         if (toSP > 0) {
-            USDR.approve(address(LP), toSP);
+            SafeERC20.forceApprove(USDR, address(LP), toSP);
             LP.depositOnBehalf(toSP, SP);
         }
 
@@ -313,5 +314,22 @@ contract AgamaSettlementVault is ISettlementVault, AccessControl, ReentrancyGuar
     ///         two-managers-active gap).
     function grantManager(address account) external onlyRole(DEFAULT_ADMIN_ROLE) {
         _grantRole(MANAGER_ROLE, account);
+    }
+
+    /// @notice Sweep any residual ERC20 balance held by this vault to a
+    ///         recipient. Fulfils the docstring promise on
+    ///         `emergencyDistributeInKind` that small per-holder rounding
+    ///         dust can be collected by governance after all claims are
+    ///         processed. Also handy for recovering stuck tokens sent
+    ///         here in error.
+    /// @dev    Governance discipline: only call after all batch claims have
+    ///         been processed for the relevant RWA, otherwise legitimate
+    ///         claims may revert with InsufficientBalance.
+    function sweepDust(IERC20 token, address to) external onlyRole(GOVERNOR_ROLE) returns (uint256 amount) {
+        amount = token.balanceOf(address(this));
+        if (amount > 0) {
+            token.safeTransfer(to, amount);
+            emit DustSwept(address(token), to, amount);
+        }
     }
 }

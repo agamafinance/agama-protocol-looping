@@ -73,7 +73,7 @@ contract AgamaFeeCollector is AccessControl {
     }
 
     function _forward(address token, uint256 amount, bytes32 feeType) internal {
-        IERC20(token).approve(address(treasury), amount);
+        SafeERC20.forceApprove(IERC20(token), address(treasury), amount);
         treasury.deposit(token, amount);
         emit FeeForwarded(token, amount, feeType);
     }
