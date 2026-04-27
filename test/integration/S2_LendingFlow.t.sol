@@ -151,7 +151,7 @@ contract S2LendingFlowTest is Test {
         bytes memory data = abi.encode(uint256(0));
         vm.prank(alice);
         vm.expectRevert(AgamaLendingPool.AmountBelowMinimum.selector);
-        pool.borrow(address(adapter), data, 50e18); // below 100e18 min
+        pool.borrow(address(adapter), data, 0.5e18); // below 1e18 min
     }
 
     // ---- 3. Interest accrual --------------------------------------------

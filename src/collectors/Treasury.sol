@@ -15,8 +15,8 @@ import {IAgamaPool, IAgamaSP} from "../interfaces/IAgamaCollectors.sol";
 ///         individual rewards. The auto-stake hook is gated by
 ///         `autoStakeEnabled`, which can be flipped (in demo mode) to a
 ///         "hold-liquid" V2 mainnet posture for paying ops/audits.
-/// @dev    Withdrawals from the SP go through the standard SP timelock
-///         (`requestWithdraw` → `redeem`).
+/// @dev    Withdrawals from the SP are direct ERC-4626 redeems (no timelock,
+///         per the V1 D2 refactor).
 contract AgamaTreasury is AccessControl {
     using SafeERC20 for IERC20;
 
@@ -37,7 +37,7 @@ contract AgamaTreasury is AccessControl {
 
     event Deposited(address indexed token, address indexed from, uint256 amount);
     event AutoStaked(uint256 usdrIn, uint256 agTokenMinted, uint256 agaSPMinted);
-    event WithdrawRequestedFromSP(uint256 agaSPAmount);
+    event WithdrawnFromSP(address indexed to, uint256 agaSPBurned, uint256 agSharesOut);
     event WithdrawCompleted(address indexed to, uint256 usdrAmount);
     event StakeIdleProcessed(uint256 amount);
     event SupportedTokenSet(address indexed token, bool supported);
@@ -98,18 +98,21 @@ contract AgamaTreasury is AccessControl {
 
     // ---- Outflows --------------------------------------------------------
 
-    /// @notice Manager queues a redeem ticket on the SP (subject to SP's own
-    ///         30-min timelock + 2-day window).
-    function requestWithdrawFromSP(uint256 agaSPAmount) external onlyRole(MANAGER_ROLE) {
-        SP.requestWithdraw(agaSPAmount);
-        emit WithdrawRequestedFromSP(agaSPAmount);
+    /// @notice Burns Treasury agaSP, sends the resulting agTOKEN directly to
+    ///         `recipient`. Direct ERC-4626 redeem — no timelock (D2).
+    /// @dev    Recipient handles any further conversion (LP.redeem to USDr).
+    function withdrawFromSP(uint256 agaSPAmount, address recipient)
+        external
+        onlyRole(MANAGER_ROLE)
+        returns (uint256 agSharesOut)
+    {
+        agSharesOut = SP.redeem(agaSPAmount, recipient, address(this));
+        emit WithdrawnFromSP(recipient, agaSPAmount, agSharesOut);
     }
 
-    /// @notice Manager redeems agaSP → agTOKEN, then unwraps agTOKEN → USDr,
-    ///         and forwards `amount` USDr to `to`. Subject to the SP timelock
-    ///         queued via `requestWithdrawFromSP`.
+    /// @notice Full exit: burns Treasury agaSP, then unwraps the resulting
+    ///         agTOKEN into USDr and forwards to `to`.
     function withdrawToAddress(uint256 agaSPAmount, address to) external onlyRole(MANAGER_ROLE) {
-        // SP.redeem returns agTOKEN amount; unwrap that into USDr via LP.redeem.
         uint256 agShares = SP.redeem(agaSPAmount, address(this), address(this));
         uint256 usdrOut = LP.redeem(agShares, to, address(this));
         emit WithdrawCompleted(to, usdrOut);

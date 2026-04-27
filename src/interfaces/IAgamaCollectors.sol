@@ -15,9 +15,8 @@ interface IAgamaPool is IERC4626 {
     function depositOnBehalf(uint256 assets, address receiver) external returns (uint256 shares);
 }
 
-/// @notice IERC4626 + the SP's two-step withdraw queue.
+/// @notice IERC4626 + the SP's snapshot-vote surface.
 interface IAgamaSP is IERC4626 {
-    function requestWithdraw(uint256 amount) external;
     function getPastVotes(address account, uint256 timepoint) external view returns (uint256);
     function getPastTotalSupply(uint256 timepoint) external view returns (uint256);
 }

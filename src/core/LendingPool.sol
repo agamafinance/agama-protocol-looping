@@ -164,7 +164,7 @@ contract AgamaLendingPool is ERC4626, ILendingPool, AccessControl, Pausable, Ree
         originationFeeBps = 50; // 50 bps
         depositFeeBps = 0;
         vaultOpeningFee = 0;
-        minBorrowAmount = 100e18; // 100 USDr
+        minBorrowAmount = 1e18; // 1 USDr — testnet/demo flexibility
         supplyCap = type(uint256).max;
         borrowCap = type(uint256).max;
 

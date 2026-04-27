@@ -23,6 +23,7 @@ contract AgamaReserveFund is AccessControl {
     using SafeERC20 for IERC20;
 
     bytes32 public constant DEPOSITOR_ROLE = keccak256("DEPOSITOR_ROLE");
+    bytes32 public constant GOVERNOR_ROLE = keccak256("GOVERNOR_ROLE");
 
     IAgamaPool public immutable LP;
     IAgamaSP public immutable SP;
@@ -31,7 +32,7 @@ contract AgamaReserveFund is AccessControl {
     event Seeded(uint256 usdrIn, uint256 agTokenMinted, uint256 agaSPMinted);
     event Deposited(address indexed from, uint256 amount);
     event AutoStaked(uint256 usdrIn, uint256 agTokenMinted, uint256 agaSPMinted);
-    event WithdrawRequestedFromSP(uint256 agaSPAmount);
+    event WithdrawnFromSP(address indexed to, uint256 agaSPBurned, uint256 agSharesOut);
     event WithdrawCompleted(address indexed to, uint256 usdrAmount);
 
     error AmountZero();
@@ -41,6 +42,7 @@ contract AgamaReserveFund is AccessControl {
         SP = sp;
         USDR = usdr;
         _grantRole(DEFAULT_ADMIN_ROLE, admin);
+        _grantRole(GOVERNOR_ROLE, admin);
     }
 
     /// @notice One-shot seed at TGE. Callable by admin. Pulls `amount` USDr
@@ -79,14 +81,21 @@ contract AgamaReserveFund is AccessControl {
 
     // ---- Governance withdrawals -----------------------------------------
 
-    /// @notice Governance queues a redeem ticket on the SP. Subject to the
-    ///         standard SP 30-min ready + 2-day window timelock.
-    function requestWithdrawFromSP(uint256 agaSPAmount) external onlyRole(DEFAULT_ADMIN_ROLE) {
-        SP.requestWithdraw(agaSPAmount);
-        emit WithdrawRequestedFromSP(agaSPAmount);
+    /// @notice Burns RF agaSP, sends the resulting agTOKEN directly to
+    ///         `recipient`. Direct ERC-4626 redeem — no timelock (D2).
+    /// @dev    Recipient handles any further conversion (LP.redeem to USDr).
+    function withdrawFromSP(uint256 agaSPAmount, address recipient)
+        external
+        onlyRole(GOVERNOR_ROLE)
+        returns (uint256 agSharesOut)
+    {
+        agSharesOut = SP.redeem(agaSPAmount, recipient, address(this));
+        emit WithdrawnFromSP(recipient, agaSPAmount, agSharesOut);
     }
 
-    function withdrawToAddress(uint256 agaSPAmount, address to) external onlyRole(DEFAULT_ADMIN_ROLE) {
+    /// @notice Full exit: burns RF agaSP, then burns the resulting agTOKEN
+    ///         on the LP, sending USDr to `to`.
+    function withdrawToAddress(uint256 agaSPAmount, address to) external onlyRole(GOVERNOR_ROLE) {
         uint256 agShares = SP.redeem(agaSPAmount, address(this), address(this));
         uint256 usdrOut = LP.redeem(agShares, to, address(this));
         emit WithdrawCompleted(to, usdrOut);
