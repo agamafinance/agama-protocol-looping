@@ -2,7 +2,10 @@
 pragma solidity 0.8.26;
 
 import {ERC20} from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
+import {IERC20Metadata} from "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol";
 import {AccessControl} from "@openzeppelin/contracts/access/AccessControl.sol";
+
+import {IPricedToken} from "../interfaces/IPricedToken.sol";
 
 /// @title MockAMFI
 /// @notice Yield-bearing ERC20 mock for the AmFi senior tranche RWA token.
@@ -12,8 +15,10 @@ import {AccessControl} from "@openzeppelin/contracts/access/AccessControl.sol";
 /// @dev    Adapters compute collateral value as
 ///             userBalance × pricePerShare × oracleSpot / 1e36
 ///         where oracleSpot is the USD-per-par price (BRL/USD FX × parity).
-///         18 decimals.
-contract MockAMFI is ERC20, AccessControl {
+///         18 decimals. Legacy single-tranche mock; the V2 multi-pool design
+///         uses MockTrancheToken instead. Both implement IPricedToken so the
+///         AmFiAdapter accepts either interchangeably.
+contract MockAMFI is ERC20, AccessControl, IPricedToken {
     bytes32 public constant MINTER_ROLE = keccak256("MINTER_ROLE");
     bytes32 public constant ACCRUAL_ADMIN_ROLE = keccak256("ACCRUAL_ADMIN_ROLE");
 
@@ -41,7 +46,7 @@ contract MockAMFI is ERC20, AccessControl {
         aprRay = initialAprRay;
     }
 
-    function decimals() public pure override returns (uint8) {
+    function decimals() public pure override(ERC20, IERC20Metadata) returns (uint8) {
         return 18;
     }
 

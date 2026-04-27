@@ -6,16 +6,21 @@ import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 
 import {IAssetAdapter} from "./IAssetAdapter.sol";
-import {MockAMFI} from "../mocks/MockAMFI.sol";
+import {IPricedToken} from "../interfaces/IPricedToken.sol";
 import {MockOracle} from "../mocks/MockOracle.sol";
 
 /// @title AmFiAdapter
-/// @notice Custody + valuation adapter for AmFi senior tranche tokens. The
-///         adapter holds the underlying RWA tokens; the LendingPool calls in
-///         here for deposit/withdraw and reads collateral values for HF math.
-///         V1: 1 user = 1 position per adapter (positionKey is a constant).
+/// @notice Custody + valuation adapter for an AmFi-style yield-bearing
+///         tranche token. Holds the underlying RWA tokens; the LendingPool
+///         calls in here for deposit/withdraw and reads collateral values
+///         for HF math. V1: 1 user = 1 position per adapter (positionKey is
+///         a constant).
 /// @dev    Valuation: `balance × pricePerShare × oraclePrice / 1e36`, all
 ///         components in 1e18-fixed → result is USD with 1e18 scaling.
+///         Each deployed instance is bound at construction to one tranche
+///         token (sRESOLV, jRESOLV, sDIGCAP, …) and one oracle, so multiple
+///         pools/tranches just mean multiple adapter deployments — no
+///         changes to the core protocol.
 contract AmFiAdapter is IAssetAdapter, Ownable {
     using SafeERC20 for IERC20;
 
@@ -32,9 +37,10 @@ contract AmFiAdapter is IAssetAdapter, Ownable {
     /// @notice The LendingPool authorized to call lifecycle entrypoints.
     address public immutable POOL;
 
-    /// @notice The underlying AmFi senior tranche ERC20 (yield-bearing via
-    ///         `pricePerShare()`).
-    MockAMFI public immutable AMFI;
+    /// @notice The underlying yield-bearing tranche token (any contract
+    ///         implementing IPricedToken — historically MockAMFI, in V2
+    ///         the per-tranche MockTrancheToken instances).
+    IPricedToken public immutable TOKEN;
 
     // ---- Risk parameters (immutable per V1) ------------------------------
 
@@ -76,7 +82,7 @@ contract AmFiAdapter is IAssetAdapter, Ownable {
 
     constructor(
         address pool,
-        MockAMFI amfi,
+        IPricedToken token,
         MockOracle oracle_,
         address admin,
         uint256 maxLtvBps,
@@ -93,7 +99,7 @@ contract AmFiAdapter is IAssetAdapter, Ownable {
         if (liquidationBonusBps > 10_000) revert InvalidRiskParams();
 
         POOL = pool;
-        AMFI = amfi;
+        TOKEN = token;
         oracle = oracle_;
         MAX_LTV = maxLtvBps;
         LIQUIDATION_THRESHOLD = liquidationThresholdBps;
@@ -126,7 +132,7 @@ contract AmFiAdapter is IAssetAdapter, Ownable {
         if (amount == 0) revert AmountZero();
         _balances[V1_POSITION_KEY][user] += amount;
         totalInternalBalance += amount;
-        IERC20(address(AMFI)).safeTransferFrom(user, address(this), amount);
+        IERC20(address(TOKEN)).safeTransferFrom(user, address(this), amount);
         emit Deposited(user, V1_POSITION_KEY, amount);
     }
 
@@ -141,7 +147,7 @@ contract AmFiAdapter is IAssetAdapter, Ownable {
             _balances[V1_POSITION_KEY][user] = bal - amount;
             totalInternalBalance -= amount;
         }
-        IERC20(address(AMFI)).safeTransfer(user, amount);
+        IERC20(address(TOKEN)).safeTransfer(user, amount);
         emit Withdrawn(user, V1_POSITION_KEY, amount);
     }
 
@@ -159,7 +165,7 @@ contract AmFiAdapter is IAssetAdapter, Ownable {
         unchecked {
             totalInternalBalance -= bal;
         }
-        IERC20(address(AMFI)).safeTransfer(to, bal);
+        IERC20(address(TOKEN)).safeTransfer(to, bal);
         emit Seized(from, V1_POSITION_KEY, to, bal);
     }
 
@@ -208,7 +214,7 @@ contract AmFiAdapter is IAssetAdapter, Ownable {
     // ---- Asset metadata --------------------------------------------------
 
     function getAssetToken() external view override returns (address) {
-        return address(AMFI);
+        return address(TOKEN);
     }
 
     function getAssetType() external pure override returns (string memory) {
@@ -255,7 +261,7 @@ contract AmFiAdapter is IAssetAdapter, Ownable {
         uint256 spotUsd = oracle.getPrice();
         if (spotUsd == 0) revert OracleZero();
         if (block.timestamp - oracle.lastUpdate() > ORACLE_STALENESS_MAX) revert OracleStale();
-        uint256 pps = AMFI.pricePerShare();
+        uint256 pps = TOKEN.pricePerShare();
         // value = amount × pps × spotUsd / 1e36, all in 1e18 fixed
         return (amount * pps * spotUsd) / (SCALE * SCALE);
     }

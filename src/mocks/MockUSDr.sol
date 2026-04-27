@@ -13,7 +13,9 @@ import {ERC20} from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 ///         the real mainnet stablecoin would have proper role gating. Burn
 ///         remains caller-only.
 contract MockUSDr is ERC20 {
-    constructor(address /* admin — kept for backwards compatibility, unused */ )
+    constructor(
+        address /* admin — kept for backwards compatibility, unused */
+    )
         ERC20("Mock USDr", "mUSDr")
     {}
 

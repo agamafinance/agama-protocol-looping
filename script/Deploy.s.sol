@@ -86,8 +86,7 @@ contract Deploy is Script {
 
         // The mocks expose a public unrestricted mint() — anyone can self-mint
         // test tokens, including this faucet contract. No grantRole needed.
-        SplitFaucet splitFaucet =
-            new SplitFaucet(deployer, usdr, amfi, FAUCET_USDR_DRIP, FAUCET_AMFI_DRIP, 0);
+        SplitFaucet splitFaucet = new SplitFaucet(deployer, usdr, amfi, FAUCET_USDR_DRIP, FAUCET_AMFI_DRIP, 0);
 
         // ---- 2. LendingPool (deploys DebtToken in its constructor) -----
         AgamaLendingPool pool = new AgamaLendingPool(
