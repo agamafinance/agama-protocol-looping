@@ -24,5 +24,8 @@
     "originationFee": 50,
     "reserveFactor": 1000,
     "testnetMode": true
+  },
+  "sourceAheadOfLive": {
+    "note": "Source on main is ahead of the live contracts at the addresses above. The post-audit hardening (commits f622629 / 1d4216c / 1894e80) has NOT been redeployed yet, pending USDr top-up from the Rayls team. The live contracts are functionally equivalent for the demo flow but missing: _decimalsOffset=6 on LP (inflation attack mitigation), forceApprove patterns, sweepDust on Vault, replaceManager input validation, setStaleBatchPeriod bounds, setSplit redeemBps floor, AmFiAdapter constructor bound checks, the seeded guard on RF.seed, and the renamed NoDebtToLiquidate error. Plan: cascade redeploy at next funded window."
   }
 }
