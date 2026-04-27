@@ -9,10 +9,10 @@
     "LiquidationProxy": "0x30A7321FA55904B270729d515A6D95B4AcEB9A18",
     "MockAMFI": "0xf2Db2114b62157D96a383f57De2221F8A5C00f7F",
     "MockOracle": "0x534eC51fd74405433e1388a2907b1949BfD89D2e",
-    "ReserveFund": "0x7aDf137A51E67427404dabC35F01E92e5e910208",
-    "SettlementVault": "0x76cbf132fe4beB132e9eB35d5A0cC6450306bffc",
+    "ReserveFund": "0x96B233d79CC2C4011FC7C93697A186369B38B853",
+    "SettlementVault": "0x4920426C0F298B3f9B92073193Afa4cc7Ec85442",
     "StabilityPool": "0x48C5d92d50AcD644CCFAf931b98E86542Ef3B7A3",
-    "Treasury": "0xB74bEEe8f4b871E049082038Cc4c55d52b200A7d",
+    "Treasury": "0x31eD9f328213a9e515bfa970BD745D67093Dc610",
     "USDr": "0xe52958da496cc0D3A0c652692112D5519d3bBC63"
   },
   "deployedAt": 1777239075,
@@ -20,6 +20,7 @@
     "liquidationBonus": 500,
     "liquidationThreshold": 8000,
     "maxLTV": 7000,
+    "minBorrowAmount": "1e18",
     "originationFee": 50,
     "reserveFactor": 1000,
     "testnetMode": true
