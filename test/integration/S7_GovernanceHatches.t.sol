@@ -115,6 +115,65 @@ contract S7GovernanceHatchesTest is Test {
         svault.replaceManager(oldManager, newManager);
     }
 
+    // ---- Phase B: replaceManager input validation -------------------
+
+    function test_replaceManager_zeroOld_reverts() public {
+        vm.prank(admin);
+        vm.expectRevert(AgamaSettlementVault.InvalidManager.selector);
+        svault.replaceManager(address(0), newManager);
+    }
+
+    function test_replaceManager_zeroNew_reverts() public {
+        vm.prank(admin);
+        vm.expectRevert(AgamaSettlementVault.InvalidManager.selector);
+        svault.replaceManager(oldManager, address(0));
+    }
+
+    function test_replaceManager_sameAddress_reverts() public {
+        vm.prank(admin);
+        vm.expectRevert(AgamaSettlementVault.InvalidManager.selector);
+        svault.replaceManager(oldManager, oldManager);
+    }
+
+    function test_replaceManager_oldNotManager_reverts() public {
+        // bob never had MANAGER_ROLE
+        vm.prank(admin);
+        vm.expectRevert(AgamaSettlementVault.InvalidManager.selector);
+        svault.replaceManager(bob, newManager);
+    }
+
+    // ---- Phase B: setStaleBatchPeriod bounds ------------------------
+
+    function test_setStaleBatchPeriod_belowMin_reverts() public {
+        vm.prank(admin);
+        vm.expectRevert(AgamaSettlementVault.InvalidPeriod.selector);
+        svault.setStaleBatchPeriod(1 hours); // below 1 day floor
+    }
+
+    function test_setStaleBatchPeriod_aboveMax_reverts() public {
+        vm.prank(admin);
+        vm.expectRevert(AgamaSettlementVault.InvalidPeriod.selector);
+        svault.setStaleBatchPeriod(366 days); // above 365 day ceiling
+    }
+
+    // ---- Phase B: setSplit redeemBps floor --------------------------
+
+    function test_setSplit_redeemBpsBelowFloor_reverts() public {
+        AgamaSettlementVault.LiquidationSplit memory bad =
+            AgamaSettlementVault.LiquidationSplit({treasuryBps: 6_000, redeemBps: 4_000});
+        vm.prank(admin);
+        vm.expectRevert(AgamaSettlementVault.InvalidSplit.selector);
+        svault.setSplit(bad);
+    }
+
+    function test_setSplit_redeemBpsAtFloor_works() public {
+        AgamaSettlementVault.LiquidationSplit memory ok =
+            AgamaSettlementVault.LiquidationSplit({treasuryBps: 5_000, redeemBps: 5_000});
+        vm.prank(admin);
+        svault.setSplit(ok);
+        // No revert means it passed.
+    }
+
     // ---- 2. forceEmergencySettlement bypasses the 60-day window -----
 
     function _triggerLiquidation() internal {

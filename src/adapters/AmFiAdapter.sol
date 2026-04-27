@@ -70,6 +70,7 @@ contract AmFiAdapter is IAssetAdapter, Ownable {
     error OracleStale();
     error OracleZero();
     error InvalidData();
+    error InvalidRiskParams();
 
     // ---- Construction ----------------------------------------------------
 
@@ -83,6 +84,14 @@ contract AmFiAdapter is IAssetAdapter, Ownable {
         uint256 liquidationBonusBps,
         uint256 oracleStalenessMax
     ) Ownable(admin) {
+        // Sanity bounds: LTV must leave room for the liquidation buffer,
+        // LT must stay <= 100%, bonus must be <= 100%. These are immutable
+        // for the lifetime of the adapter, so a misconfigured deploy would
+        // be unrecoverable.
+        if (maxLtvBps >= liquidationThresholdBps) revert InvalidRiskParams();
+        if (liquidationThresholdBps > 10_000) revert InvalidRiskParams();
+        if (liquidationBonusBps > 10_000) revert InvalidRiskParams();
+
         POOL = pool;
         AMFI = amfi;
         oracle = oracle_;

@@ -52,12 +52,15 @@ contract S3ERC4626ComplianceTest is Test {
     // ====================================================================
     // 1. Identity invariant
     //
-    //   At the genesis ratio (totalSupply == 0), 1 USDr == 1 share.
+    //   At the genesis ratio (totalSupply == 0), 1 USDr == 1e6 shares due
+    //   to the _decimalsOffset = 6 inflation-attack mitigation.
     // ====================================================================
 
+    uint256 internal constant SHARE_OFFSET = 1e6;
+
     function test_genesis_oneAssetIsOneShare() public view {
-        assertEq(pool.convertToShares(1e18), 1e18);
-        assertEq(pool.convertToAssets(1e18), 1e18);
+        assertEq(pool.convertToShares(1e18), 1e18 * SHARE_OFFSET);
+        assertEq(pool.convertToAssets(1e18 * SHARE_OFFSET), 1e18);
     }
 
     // ====================================================================
@@ -69,8 +72,8 @@ contract S3ERC4626ComplianceTest is Test {
     }
 
     function test_decimals_matchesUnderlying() public view {
-        // OZ ERC4626 forwards decimals() to the asset.
-        assertEq(pool.decimals(), usdr.decimals());
+        // OZ ERC4626 with _decimalsOffset = 6 returns asset.decimals() + 6.
+        assertEq(pool.decimals(), usdr.decimals() + 6);
     }
 
     // ====================================================================
@@ -138,12 +141,14 @@ contract S3ERC4626ComplianceTest is Test {
         uint256 assets = bound(uint256(amountSeed), 1e18, 100_000e18);
         uint256 shares = pool.convertToShares(assets);
         uint256 back = pool.convertToAssets(shares);
-        // Round-trip rounding: OZ ERC4626 uses FLOOR on each direction, so the
-        // composition can drift by up to 2 wei (1 wei per direction).
+        // Round-trip rounding: OZ ERC4626 uses FLOOR on each direction. With
+        // _decimalsOffset = 6 the share unit is 1e6 finer than the asset
+        // unit, so rounding loss in the assets-shares-assets direction stays
+        // within 1 wei.
         if (back > assets) {
-            assertLe(back - assets, 2);
+            assertLe(back - assets, 1);
         } else {
-            assertLe(assets - back, 2);
+            assertLe(assets - back, 1);
         }
     }
 
@@ -152,13 +157,16 @@ contract S3ERC4626ComplianceTest is Test {
         _aliceBorrow(500_000e18);
         vm.warp(block.timestamp + 30 days);
 
-        uint256 shares = bound(uint256(sharesSeed), 1e18, 100_000e18);
+        // With _decimalsOffset = 6, the shares-assets-shares roundtrip can
+        // lose up to (totalSupply / totalAssets) wei per direction =
+        // ~SHARE_OFFSET wei. Use a tolerance of 2 * SHARE_OFFSET for safety.
+        uint256 shares = bound(uint256(sharesSeed), 1e18 * SHARE_OFFSET, 100_000e18 * SHARE_OFFSET);
         uint256 assets = pool.convertToAssets(shares);
         uint256 back = pool.convertToShares(assets);
         if (back > shares) {
-            assertLe(back - shares, 2);
+            assertLe(back - shares, 2 * SHARE_OFFSET);
         } else {
-            assertLe(shares - back, 2);
+            assertLe(shares - back, 2 * SHARE_OFFSET);
         }
     }
 
@@ -258,7 +266,7 @@ contract S3ERC4626ComplianceTest is Test {
 
     function test_maxRedeem_capsAtUserShares() public {
         _bobDeposit(500_000e18);
-        assertEq(pool.maxRedeem(bob), 500_000e18);
+        assertEq(pool.maxRedeem(bob), 500_000e18 * SHARE_OFFSET);
     }
 
     // ====================================================================
@@ -276,7 +284,7 @@ contract S3ERC4626ComplianceTest is Test {
         usdr.mint(address(wrapper), 100_000e18);
 
         wrapper.depositAll();
-        assertEq(pool.balanceOf(address(wrapper)), 100_000e18);
+        assertEq(pool.balanceOf(address(wrapper)), 100_000e18 * SHARE_OFFSET);
 
         wrapper.redeemAll();
         assertEq(usdr.balanceOf(address(wrapper)), 100_000e18);

@@ -100,7 +100,9 @@ contract S2LendingFlowTest is Test {
 
     function test_bobDeposit_mintsAgToken1to1() public {
         _bobDeposits(1_000_000e18);
-        assertEq(pool.balanceOf(bob), 1_000_000e18, "agTOKEN minted 1:1 at zero util");
+        // _decimalsOffset = 6 → 1 USDr = 1e6 agTOKEN at genesis (still 1:1
+        // in human units, the offset only affects the internal share scale).
+        assertEq(pool.balanceOf(bob), 1_000_000e18 * 1e6, "agTOKEN minted at offset-shifted ratio");
         assertEq(usdr.balanceOf(address(pool)), 1_000_000e18, "USDr custody on pool");
         assertEq(pool.totalAssets(), 1_000_000e18);
     }
@@ -247,8 +249,9 @@ contract S2LendingFlowTest is Test {
 
         vm.warp(block.timestamp + 30 days);
 
-        // Bob redeems 100k shares — assets returned should exceed 100k due to share appreciation.
-        uint256 sharesToRedeem = 100_000e18;
+        // Bob redeems 100k shares-of-asset — assets returned should exceed
+        // 100k due to share appreciation. Multiply by 1e6 _decimalsOffset.
+        uint256 sharesToRedeem = 100_000e18 * 1e6;
         vm.prank(bob);
         uint256 assetsBack = pool.redeem(sharesToRedeem, bob, bob);
 

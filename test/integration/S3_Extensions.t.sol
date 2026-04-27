@@ -126,10 +126,12 @@ contract S3ExtensionsTest is Test {
         _aliceBorrow(500_000e18); // 500k debt minted
         // Pre-state: cash 500k, debt 500k, supply 1M, share price 1.0.
 
-        // Bob stakes some agTOKEN
+        // Bob stakes some agTOKEN. After _decimalsOffset = 6, Bob holds
+        // 1M USDr → 1M*1e6 agTOKEN. Stake half of that.
+        uint256 stake = 500_000e18 * 1e6;
         vm.startPrank(bob);
-        pool.approve(address(sp), 500_000e18);
-        sp.deposit(500_000e18, bob);
+        pool.approve(address(sp), stake);
+        sp.deposit(stake, bob);
         vm.stopPrank();
 
         uint256 sharePriceBefore = pool.convertToAssets(1e18);

@@ -204,6 +204,15 @@ contract AgamaLendingPool is ERC4626, ILendingPool, AccessControl, Pausable, Ree
         return cash + debt;
     }
 
+    /// @dev OZ ERC4626 inflation-attack mitigation. With offset = 6, the
+    ///      virtual share count is 1e6, so an attacker depositing 1 wei of
+    ///      USDr into an empty pool then donating N USDr only inflates
+    ///      share price by N / 1e6 instead of N — making the canonical
+    ///      donation attack non-economical for any realistic N.
+    function _decimalsOffset() internal pure override returns (uint8) {
+        return 6;
+    }
+
     function _deposit(address caller, address receiver, uint256 assets, uint256 shares) internal override {
         _reserve.updateState();
         if (assets == 0) revert AmountZero();

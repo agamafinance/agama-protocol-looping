@@ -100,6 +100,9 @@ contract AgamaSettlementVault is ISettlementVault, AccessControl, ReentrancyGuar
     error InvalidSplit();
     error OnlySP();
     error AmountZero();
+    error InvalidManager();
+    error InvalidPeriod();
+    error SeizedAmountMismatch();
 
     modifier onlySP() {
         if (msg.sender != SP) revert OnlySP();
@@ -132,6 +135,15 @@ contract AgamaSettlementVault is ISettlementVault, AccessControl, ReentrancyGuar
         uint256 /* minSharesOut — V1 unused */
     ) external override nonReentrant onlySP returns (uint256 batchId) {
         if (seizedAmount == 0) revert AmountZero();
+        // Defense-in-depth: vault must hold at least `seizedAmount` of the
+        // RWA token. SP transfers before calling, so this catches a
+        // catastrophic mismatch (SP bug, miscomputed seized). Note this is
+        // not a strict delta check — if a previous batch left dust, that
+        // dust is counted. For V1 (vanilla ERC20 collateral, settle sweeps
+        // to 0xdead) this is sufficient. Add fee-on-transfer adapters only
+        // with a stricter pre-balance snapshot pattern.
+        uint256 actualReceived = IERC20(rwaToken).balanceOf(address(this));
+        if (actualReceived < seizedAmount) revert SeizedAmountMismatch();
         batchId = ++nextBatchId;
         batches[batchId] = Batch({
             id: batchId,
@@ -246,16 +258,25 @@ contract AgamaSettlementVault is ISettlementVault, AccessControl, ReentrancyGuar
 
     // ---- Admin -----------------------------------------------------------
 
+    /// @notice Update the settlement split. `treasuryBps + redeemBps` must
+    ///         equal 10_000. SP must keep at least 50% of every settle to
+    ///         preserve the protocol's primary economic incentive (without
+    ///         this floor, governance could redirect the entire RWA premium
+    ///         to Treasury, starving SP stakers).
     function setSplit(LiquidationSplit calldata newSplit) external onlyRole(GOVERNOR_ROLE) {
         if (uint256(newSplit.treasuryBps) + uint256(newSplit.redeemBps) != 10_000) revert InvalidSplit();
+        if (newSplit.redeemBps < 5_000) revert InvalidSplit();
         split = newSplit;
         emit SplitUpdated(newSplit.treasuryBps, newSplit.redeemBps);
     }
 
     /// @notice Governance-controlled adjustment of the emergency-claim window.
     ///         Default at deploy is 60 days; tighten or extend via governance
-    ///         vote.
+    ///         vote. Bounded to [1 day, 365 days] to prevent foot-guns
+    ///         (zero would race the manager, infinity would DOS emergency
+    ///         claims).
     function setStaleBatchPeriod(uint256 secs) external onlyRole(GOVERNOR_ROLE) {
+        if (secs < 1 days || secs > 365 days) revert InvalidPeriod();
         staleBatchPeriod = secs;
         emit StaleBatchPeriodUpdated(secs);
     }
@@ -264,6 +285,9 @@ contract AgamaSettlementVault is ISettlementVault, AccessControl, ReentrancyGuar
     ///         compromised, inactive, or when rotating ops staff. Strictly
     ///         atomic — old loses MANAGER_ROLE the same tx the new gains it.
     function replaceManager(address oldManager, address newManager) external onlyRole(GOVERNOR_ROLE) {
+        if (oldManager == address(0) || newManager == address(0)) revert InvalidManager();
+        if (oldManager == newManager) revert InvalidManager();
+        if (!hasRole(MANAGER_ROLE, oldManager)) revert InvalidManager();
         _revokeRole(MANAGER_ROLE, oldManager);
         _grantRole(MANAGER_ROLE, newManager);
         emit ManagerReplaced(oldManager, newManager);
