@@ -415,13 +415,19 @@ contract StressBase is Test {
         }
     }
 
-    /// INV7: agaSP soulbound — transfer must revert.
+    /// INV7 (V2): sagYLD instant ERC-4626 exits are disabled. The token
+    ///            itself is transferable (cooldown lives in the request
+    ///            queue), but `redeem`/`withdraw` must revert with
+    ///            `UseCooldownPath`.
     function _checkINV7() internal {
-        if (sp.balanceOf(address(treasury)) == 0) return;
         vm.prank(address(treasury));
-        (bool ok,) =
-            address(sp).call(abi.encodeWithSignature("transfer(address,uint256)", address(0xdead), 1));
-        require(!ok, "INV7 violated: agaSP transfer succeeded");
+        (bool ok1,) =
+            address(sp).call(abi.encodeWithSignature("redeem(uint256,address,address)", 1, address(this), address(treasury)));
+        require(!ok1, "INV7 violated: sagYLD redeem succeeded (cooldown bypassed)");
+        vm.prank(address(treasury));
+        (bool ok2,) =
+            address(sp).call(abi.encodeWithSignature("withdraw(uint256,address,address)", 1, address(this), address(treasury)));
+        require(!ok2, "INV7 violated: sagYLD withdraw succeeded (cooldown bypassed)");
     }
 
     /// Run all cheap invariants. Call after each non-trivial action.

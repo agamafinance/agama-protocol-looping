@@ -48,7 +48,7 @@ contract S6OracleCircuitBreakerTest is Test {
         oracle = new MockOracle(admin, 1e18);
 
         pool =
-            new AgamaLendingPool(IERC20(address(usdr)), admin, "Agama Pool", "agUSDr", IRM.defaults(), true);
+            new AgamaLendingPool(IERC20(address(usdr)), admin, "Agama Yield", "agYLD", IRM.defaults(), true);
         adapter = new AmFiAdapter(address(pool), amfi, oracle, admin, 7000, 8000, 500, 24 hours);
         sp = new AgamaStabilityPool(IERC20(address(pool)), admin);
         proxy = new LiquidationProxy(pool, sp, admin);
@@ -136,11 +136,14 @@ contract S6OracleCircuitBreakerTest is Test {
         assertEq(usdr.balanceOf(bob) - balBefore, 100_000e18);
     }
 
-    function test_stale_sp_redeem_works() public {
-        // SP redeem doesn't touch the oracle.
+    function test_stale_sp_unstake_works() public {
+        // SP cooldown path doesn't touch the oracle.
         vm.roll(block.number + 1);
         vm.prank(bob);
-        uint256 assets = sp.redeem(100_000e18, bob, bob);
+        uint256 reqId = sp.requestUnstake(100_000e18);
+        vm.warp(block.timestamp + 7 days + 1);
+        vm.prank(bob);
+        uint256 assets = sp.claim(reqId);
         assertEq(assets, 100_000e18);
     }
 

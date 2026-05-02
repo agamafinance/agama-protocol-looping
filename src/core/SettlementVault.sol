@@ -70,6 +70,15 @@ contract AgamaSettlementVault is ISettlementVault, AccessControl, ReentrancyGuar
     ///         becomes callable. Production = 60 days.
     uint256 public staleBatchPeriod;
 
+    /// @notice Expected window from `queuedAt` until the manager normally
+    ///         settles a batch off-chain (production ~15 days). Used by the
+    ///         StabilityPool's unstake cooldown: a `requestUnstake` issued
+    ///         while a batch is still within its expected window is held
+    ///         in cooldown until the batch is expected to close, ensuring
+    ///         the stake actually absorbs the liquidation it was nominally
+    ///         backing. Bounded [1 day, 30 days].
+    uint256 public standardSettlementWindow;
+
     uint256 public nextBatchId;
     mapping(uint256 id => Batch) public batches;
 
@@ -90,6 +99,7 @@ contract AgamaSettlementVault is ISettlementVault, AccessControl, ReentrancyGuar
     event EmergencyBatchDistributed(uint256 indexed id);
     event SplitUpdated(uint16 treasuryBps, uint16 redeemBps);
     event StaleBatchPeriodUpdated(uint256 secs);
+    event StandardSettlementWindowUpdated(uint256 secs);
     event ManagerReplaced(address indexed oldManager, address indexed newManager);
     event DustSwept(address indexed token, address indexed to, uint256 amount);
 
@@ -119,6 +129,7 @@ contract AgamaSettlementVault is ISettlementVault, AccessControl, ReentrancyGuar
         // V1 production split: 200 bps Treasury, 9800 bps SP.
         split = LiquidationSplit({treasuryBps: 200, redeemBps: 9800});
         staleBatchPeriod = 60 days;
+        standardSettlementWindow = 15 days;
 
         _grantRole(DEFAULT_ADMIN_ROLE, admin);
         _grantRole(GOVERNOR_ROLE, admin);
@@ -280,6 +291,38 @@ contract AgamaSettlementVault is ISettlementVault, AccessControl, ReentrancyGuar
         if (secs < 1 days || secs > 365 days) revert InvalidPeriod();
         staleBatchPeriod = secs;
         emit StaleBatchPeriodUpdated(secs);
+    }
+
+    /// @notice Update the expected settlement window read by the SP cooldown
+    ///         logic. Bounded [1 day, 30 days] — zero would defeat the
+    ///         absorption-window snapshot, anything > 30 days would stretch
+    ///         the unstake cooldown into mainnet-pathological territory.
+    function setStandardSettlementWindow(uint256 secs) external onlyRole(GOVERNOR_ROLE) {
+        if (secs < 1 days || secs > 30 days) revert InvalidPeriod();
+        standardSettlementWindow = secs;
+        emit StandardSettlementWindowUpdated(secs);
+    }
+
+    /// @notice Latest expected close time across all currently-Queued batches.
+    ///         Returns 0 if no batch is Queued. Read by `StabilityPool.requestUnstake`
+    ///         to fix the cooldown extension *at request time* — guarantees that
+    ///         a stake exits only after every absorption window it touched has
+    ///         expected to close.
+    /// @dev    O(nextBatchId). On testnet that's tiny; for mainnet at scale a
+    ///         maintained max can be added (push on handleSeizure, recompute
+    ///         on the boundary case where the closing batch was the max).
+    function latestPendingSettlementCloseTime() external view returns (uint64) {
+        uint64 maxClose = 0;
+        uint64 window = uint64(standardSettlementWindow);
+        uint256 last = nextBatchId;
+        for (uint256 i = 1; i <= last; ++i) {
+            Batch storage b = batches[i];
+            if (b.status == Status.Queued) {
+                uint64 close = b.queuedAt + window;
+                if (close > maxClose) maxClose = close;
+            }
+        }
+        return maxClose;
     }
 
     /// @notice Governance hot-swap of a manager. Use when a keeper is

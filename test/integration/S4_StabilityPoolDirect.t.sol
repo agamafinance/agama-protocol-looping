@@ -24,7 +24,7 @@ contract S4StabilityPoolDirectTest is Test {
     function setUp() public {
         usdr = new MockUSDr(admin);
         pool =
-            new AgamaLendingPool(IERC20(address(usdr)), admin, "Agama Pool", "agUSDr", IRM.defaults(), true);
+            new AgamaLendingPool(IERC20(address(usdr)), admin, "Agama Yield", "agYLD", IRM.defaults(), true);
         sp = new AgamaStabilityPool(IERC20(address(pool)), admin);
 
         vm.startPrank(admin);
@@ -51,47 +51,65 @@ contract S4StabilityPoolDirectTest is Test {
         assertEq(sp.balanceOf(bob), 100_000e18);
     }
 
-    function test_redeem_directAfterBlockAdvance() public {
+    function test_request_then_claim_returnsAgYLD() public {
         _bobStakes(100_000e18);
         vm.roll(block.number + 1);
+
         vm.prank(bob);
-        uint256 assets = sp.redeem(50_000e18, bob, bob);
+        uint256 reqId = sp.requestUnstake(50_000e18);
+
+        // Before cooldown: claim reverts.
+        vm.prank(bob);
+        vm.expectRevert(AgamaStabilityPool.CooldownNotElapsed.selector);
+        sp.claim(reqId);
+
+        vm.warp(block.timestamp + 7 days + 1);
+        vm.prank(bob);
+        uint256 assets = sp.claim(reqId);
         assertEq(assets, 50_000e18, "1:1 at zero util");
     }
 
-    // ---- Same-block guard ---------------------------------------------
+    // ---- Direct ERC-4626 redeem/withdraw are disabled ------------------
 
-    function test_redeem_sameBlock_reverts() public {
+    function test_redeem_disabled() public {
         _bobStakes(100_000e18);
-        // No vm.roll → still in same block
-        vm.expectRevert(AgamaStabilityPool.CannotDepositAndWithdrawSameBlock.selector);
+        vm.roll(block.number + 1);
         vm.prank(bob);
+        vm.expectRevert(AgamaStabilityPool.UseCooldownPath.selector);
         sp.redeem(1e18, bob, bob);
     }
 
-    function test_withdraw_sameBlock_reverts() public {
+    function test_withdraw_disabled() public {
         _bobStakes(100_000e18);
-        vm.expectRevert(AgamaStabilityPool.CannotDepositAndWithdrawSameBlock.selector);
+        vm.roll(block.number + 1);
         vm.prank(bob);
+        vm.expectRevert(AgamaStabilityPool.UseCooldownPath.selector);
         sp.withdraw(1e18, bob, bob);
     }
 
-    // ---- Soulbound -----------------------------------------------------
+    // ---- sagYLD is now ERC-20 vanilla (transferable) -------------------
+    //   The cooldown lives in the request queue, not in the token.
+    //   Transferring sagYLD during a pending unstake reduces the user's
+    //   final claim — covered by the new cooldown test suite.
 
-    function test_transfer_reverts() public {
+    function test_transfer_succeeds() public {
         _bobStakes(100_000e18);
+        uint256 before = sp.balanceOf(bob);
         vm.prank(bob);
-        vm.expectRevert(AgamaStabilityPool.NonTransferable.selector);
         sp.transfer(eve, 1);
+        assertEq(sp.balanceOf(bob), before - 1);
+        assertEq(sp.balanceOf(eve), 1);
     }
 
-    function test_approve_thenTransferFrom_reverts() public {
+    function test_approve_thenTransferFrom_succeeds() public {
         _bobStakes(100_000e18);
         vm.prank(bob);
         sp.approve(eve, type(uint256).max);
+        uint256 before = sp.balanceOf(bob);
         vm.prank(eve);
-        vm.expectRevert(AgamaStabilityPool.NonTransferable.selector);
         sp.transferFrom(bob, eve, 1);
+        assertEq(sp.balanceOf(bob), before - 1);
+        assertEq(sp.balanceOf(eve), 1);
     }
 
     // ---- ERC20Votes auto-self-delegation -----------------------------

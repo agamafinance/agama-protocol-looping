@@ -41,7 +41,7 @@ contract MultiTrancheTest is Test {
     function setUp() public {
         usdr = new MockUSDr(admin);
         pool = new AgamaLendingPool(
-            IERC20(address(usdr)), admin, "Agama Pool USDr", "agUSDr", IRM.defaults(), true
+            IERC20(address(usdr)), admin, "Agama Yield", "agYLD", IRM.defaults(), true
         );
 
         // Two tranches of the same originator pool ("Resolvi")

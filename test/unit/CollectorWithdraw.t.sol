@@ -13,9 +13,10 @@ import {MockUSDr} from "src/mocks/MockUSDr.sol";
 import {InterestRateModel as IRM} from "src/libs/InterestRateModel.sol";
 
 /// @title CollectorWithdraw
-/// @notice Locks in the post-D2 governance withdraw surface on the Treasury
-///         and ReserveFund: direct ERC-4626 redeems, no timelock, no orphan
-///         requestWithdraw entrypoint.
+/// @notice Locks in the V2 governance unstake surface on the Treasury
+///         and ReserveFund: 2-step `requestUnstakeFromSP` → wait cooldown
+///         → `claimUnstakeFromSP` (or `claimAndUnwrapToAddress` for the
+///         full USDr exit).
 contract CollectorWithdrawTest is Test {
     address admin = address(0xA11CE);
     address recipient = address(0xBEEF);
@@ -30,7 +31,7 @@ contract CollectorWithdrawTest is Test {
     function setUp() public {
         usdr = new MockUSDr(admin);
         pool =
-            new AgamaLendingPool(IERC20(address(usdr)), admin, "Agama Pool", "agUSDr", IRM.defaults(), true);
+            new AgamaLendingPool(IERC20(address(usdr)), admin, "Agama Yield", "agYLD", IRM.defaults(), true);
         sp = new AgamaStabilityPool(IERC20(address(pool)), admin);
         treasury =
             new AgamaTreasury(admin, IAgamaPool(address(pool)), IAgamaSP(address(sp)), IERC20(address(usdr)));
@@ -54,69 +55,85 @@ contract CollectorWithdrawTest is Test {
         vm.roll(block.number + 1);
     }
 
-    // ---- ReserveFund.withdrawFromSP (Option A: agTOKEN out) ---------
+    // ---- ReserveFund 2-step unstake (request + wait + claim) -----------
 
-    function test_rf_withdrawFromSP_sendsAgTokenToRecipient() public {
-        uint256 agaSPBefore = IERC20(address(sp)).balanceOf(address(rf));
-        uint256 agTokenBefore = IERC20(address(pool)).balanceOf(recipient);
+    function test_rf_request_then_claim_sendsAgYLDToRecipient() public {
+        uint256 sagBefore = IERC20(address(sp)).balanceOf(address(rf));
+        uint256 agYLDBefore = IERC20(address(pool)).balanceOf(recipient);
 
         vm.prank(admin);
-        uint256 agSharesOut = rf.withdrawFromSP(10_000e18, recipient);
+        uint256 reqId = rf.requestUnstakeFromSP(10_000e18);
+        // Cooldown not elapsed → claim reverts.
+        vm.prank(admin);
+        vm.expectRevert(AgamaStabilityPool.CooldownNotElapsed.selector);
+        rf.claimUnstakeFromSP(reqId, recipient);
 
-        assertEq(IERC20(address(sp)).balanceOf(address(rf)), agaSPBefore - 10_000e18, "agaSP burned");
+        // Warp past cooldown.
+        vm.warp(block.timestamp + 7 days + 1);
+        vm.prank(admin);
+        uint256 agYLDOut = rf.claimUnstakeFromSP(reqId, recipient);
+
+        assertEq(IERC20(address(sp)).balanceOf(address(rf)), sagBefore - 10_000e18, "sagYLD burned");
         assertEq(
-            IERC20(address(pool)).balanceOf(recipient), agTokenBefore + agSharesOut, "agTOKEN to recipient"
+            IERC20(address(pool)).balanceOf(recipient), agYLDBefore + agYLDOut, "agYLD to recipient"
         );
-        assertGt(agSharesOut, 0, "non-zero agShares");
+        assertGt(agYLDOut, 0, "non-zero agYLD");
     }
 
-    function test_rf_withdrawFromSP_unauthorized_reverts() public {
+    function test_rf_requestUnstakeFromSP_unauthorized_reverts() public {
         vm.prank(attacker);
         vm.expectRevert();
-        rf.withdrawFromSP(1e18, attacker);
+        rf.requestUnstakeFromSP(1e18);
     }
 
-    function test_rf_withdrawFromSP_governorRoleGranted() public view {
+    function test_rf_governorRoleGranted() public view {
         assertTrue(rf.hasRole(rf.GOVERNOR_ROLE(), admin));
     }
 
-    // ---- Treasury.withdrawFromSP ------------------------------------
+    // ---- Treasury 2-step unstake -------------------------------------
 
-    function test_treasury_withdrawFromSP_sendsAgTokenToRecipient() public {
-        uint256 agaSPBefore = IERC20(address(sp)).balanceOf(address(treasury));
-        uint256 agTokenBefore = IERC20(address(pool)).balanceOf(recipient);
+    function test_treasury_request_then_claim_sendsAgYLDToRecipient() public {
+        uint256 sagBefore = IERC20(address(sp)).balanceOf(address(treasury));
+        uint256 agYLDBefore = IERC20(address(pool)).balanceOf(recipient);
 
         vm.prank(admin);
-        uint256 agSharesOut = treasury.withdrawFromSP(5_000e18, recipient);
+        uint256 reqId = treasury.requestUnstakeFromSP(5_000e18);
+        vm.warp(block.timestamp + 7 days + 1);
+        vm.prank(admin);
+        uint256 agYLDOut = treasury.claimUnstakeFromSP(reqId, recipient);
 
-        assertEq(IERC20(address(sp)).balanceOf(address(treasury)), agaSPBefore - 5_000e18);
-        assertEq(IERC20(address(pool)).balanceOf(recipient), agTokenBefore + agSharesOut);
-        assertGt(agSharesOut, 0);
+        assertEq(IERC20(address(sp)).balanceOf(address(treasury)), sagBefore - 5_000e18);
+        assertEq(IERC20(address(pool)).balanceOf(recipient), agYLDBefore + agYLDOut);
+        assertGt(agYLDOut, 0);
     }
 
-    function test_treasury_withdrawFromSP_unauthorized_reverts() public {
+    function test_treasury_requestUnstakeFromSP_unauthorized_reverts() public {
         vm.prank(attacker);
         vm.expectRevert();
-        treasury.withdrawFromSP(1e18, attacker);
+        treasury.requestUnstakeFromSP(1e18);
     }
 
-    // ---- Existing withdrawToAddress (full USDr exit) still works ----
+    // ---- claimAndUnwrapToAddress (full USDr exit) still works ----
 
-    function test_rf_withdrawToAddress_returnsUsdrToRecipient() public {
-        uint256 usdrBefore = usdr.balanceOf(recipient);
-
+    function test_rf_claimAndUnwrapToAddress_returnsUsdrToRecipient() public {
         vm.prank(admin);
-        rf.withdrawToAddress(20_000e18, recipient);
+        uint256 reqId = rf.requestUnstakeFromSP(20_000e18);
+        vm.warp(block.timestamp + 7 days + 1);
 
+        uint256 usdrBefore = usdr.balanceOf(recipient);
+        vm.prank(admin);
+        rf.claimAndUnwrapToAddress(reqId, recipient);
         assertGt(usdr.balanceOf(recipient), usdrBefore, "USDr to recipient");
     }
 
-    function test_treasury_withdrawToAddress_returnsUsdrToRecipient() public {
-        uint256 usdrBefore = usdr.balanceOf(recipient);
-
+    function test_treasury_claimAndUnwrapToAddress_returnsUsdrToRecipient() public {
         vm.prank(admin);
-        treasury.withdrawToAddress(10_000e18, recipient);
+        uint256 reqId = treasury.requestUnstakeFromSP(10_000e18);
+        vm.warp(block.timestamp + 7 days + 1);
 
+        uint256 usdrBefore = usdr.balanceOf(recipient);
+        vm.prank(admin);
+        treasury.claimAndUnwrapToAddress(reqId, recipient);
         assertGt(usdr.balanceOf(recipient), usdrBefore, "USDr to recipient");
     }
 

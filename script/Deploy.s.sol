@@ -90,7 +90,7 @@ contract Deploy is Script {
 
         // ---- 2. LendingPool (deploys DebtToken in its constructor) -----
         AgamaLendingPool pool = new AgamaLendingPool(
-            IERC20(address(usdr)), deployer, "Agama Pool USDr", "agUSDr", IRM.defaults(), TESTNET_MODE
+            IERC20(address(usdr)), deployer, "Agama Yield", "agYLD", IRM.defaults(), TESTNET_MODE
         );
         DebtToken debt = pool.DEBT_TOKEN();
 

@@ -51,25 +51,31 @@ contract Cat5_StabilityPoolStressTest is StressBase {
     // S5.3 — Unstake (redeem agaSP for agTOKEN)
     // ────────────────────────────────────────────────────────────────────
 
-    function test_S5_3_unstakeRedeem() public {
+    function test_S5_3_unstakeRequestThenClaim() public {
         _seedLp();
         address actor = whales[1];
         _stakeSp(actor, 200_000e18 * 1e6);
-        uint256 agaSp = sp.balanceOf(actor);
+        uint256 sag = sp.balanceOf(actor);
 
-        // SP has a same-block guard against deposit-then-withdraw. Advance
-        // by 1 block before redeeming to clear it.
         vm.roll(block.number + 1);
 
-        // Redeem half.
+        // Request unstake of half — shares stay in user balance during cooldown.
         vm.prank(actor);
-        sp.redeem(agaSp / 2, actor, actor);
+        uint256 reqId = sp.requestUnstake(sag / 2);
+        assertEq(sp.balanceOf(actor), sag, "S5.3: balance unchanged at request time");
+
+        // Cooldown not elapsed → claim reverts.
+        vm.prank(actor);
+        vm.expectRevert();
+        sp.claim(reqId);
+
+        vm.warp(block.timestamp + 7 days + 1);
+        vm.prank(actor);
+        uint256 agYLDOut = sp.claim(reqId);
         _verifyInvariants();
 
-        assertApproxEqAbs(sp.balanceOf(actor), agaSp / 2, 1, "S5.3: half redeemed");
-        // agTOKEN balance should rise by ~100k USDr-eq.
-        uint256 agTokenBack = pool.balanceOf(actor);
-        assertGt(agTokenBack, 0, "S5.3: agTOKEN returned");
+        assertApproxEqAbs(sp.balanceOf(actor), sag / 2, 1, "S5.3: half burned at claim");
+        assertGt(agYLDOut, 0, "S5.3: agYLD returned");
     }
 
     // ────────────────────────────────────────────────────────────────────

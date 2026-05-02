@@ -11,6 +11,14 @@ interface ISettlementVault {
     ///         agaSP share price is smooth across the redemption window.
     function pegGapPendingForSP() external view returns (uint256 usdr);
 
+    /// @notice Latest `queuedAt + standardSettlementWindow` across all
+    ///         currently-Queued batches. Returns 0 when no batch is Queued.
+    ///         The StabilityPool snapshots this at `requestUnstake` so the
+    ///         user's cooldown extends to the close of every batch they were
+    ///         nominally backing — preventing a request issued just after a
+    ///         seizure from exiting before the redemption settles.
+    function latestPendingSettlementCloseTime() external view returns (uint64);
+
     /// @notice Hook called by the StabilityPool right after seizing collateral.
     ///         The vault records a redemption batch and bumps `pegGapPendingForSP`.
     /// @param rwaToken     ERC20 of the seized collateral (already transferred in).

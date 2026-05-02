@@ -37,7 +37,7 @@ contract S3ERC4626ComplianceTest is Test {
         oracle = new MockOracle(admin, 1e18);
 
         pool = new AgamaLendingPool(
-            IERC20(address(usdr)), admin, "Agama Pool USDr", "agUSDr", IRM.defaults(), true
+            IERC20(address(usdr)), admin, "Agama Yield", "agYLD", IRM.defaults(), true
         );
         adapter = new AmFiAdapter(address(pool), amfi, oracle, admin, 7000, 8000, 500, 24 hours);
 

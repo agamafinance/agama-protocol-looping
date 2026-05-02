@@ -82,6 +82,13 @@ contract MockSettlementVault is ISettlementVault, Ownable {
         emit BatchQueued(id, rwaToken, seizedAmount, pegGap);
     }
 
+    /// @notice Stub used by SP cooldown extension snapshot. The mock returns 0
+    ///         so unit tests that don't care about settlement extension see a
+    ///         vanilla `requestedAt + cooldownDuration` unlock.
+    function latestPendingSettlementCloseTime() external pure override returns (uint64) {
+        return 0;
+    }
+
     /// @notice Manager simulates the off-chain redemption: USDr is delivered
     ///         to the vault (e.g. minted in the test) and we redeposit it
     ///         into the LendingPool on the StabilityPool's behalf, restoring

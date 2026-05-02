@@ -42,7 +42,7 @@ contract S2LendingFlowTest is Test {
 
         // Pool — demo mode on testnet so timing cheats work in tests.
         IRM.Params memory irm = IRM.defaults();
-        pool = new AgamaLendingPool(IERC20(address(usdr)), admin, "Agama Pool USDr", "agUSDr", irm, true);
+        pool = new AgamaLendingPool(IERC20(address(usdr)), admin, "Agama Yield", "agYLD", irm, true);
         debt = pool.DEBT_TOKEN();
 
         // Adapter — production V1 risk: MAX_LTV 70%, LT 80%, bonus 5%, staleness 24h.

@@ -53,7 +53,7 @@ contract S7GovernanceHatchesTest is Test {
         oracle = new MockOracle(admin, 1e18);
 
         pool =
-            new AgamaLendingPool(IERC20(address(usdr)), admin, "Agama Pool", "agUSDr", IRM.defaults(), true);
+            new AgamaLendingPool(IERC20(address(usdr)), admin, "Agama Yield", "agYLD", IRM.defaults(), true);
         adapter = new AmFiAdapter(address(pool), amfi, oracle, admin, 7000, 8000, 500, 24 hours);
         sp = new AgamaStabilityPool(IERC20(address(pool)), admin);
         proxy = new LiquidationProxy(pool, sp, admin);

@@ -37,7 +37,7 @@ contract AgamaTreasury is AccessControl {
 
     event Deposited(address indexed token, address indexed from, uint256 amount);
     event AutoStaked(uint256 usdrIn, uint256 agTokenMinted, uint256 agaSPMinted);
-    event WithdrawnFromSP(address indexed to, uint256 agaSPBurned, uint256 agSharesOut);
+    event WithdrawnFromSP(address indexed to, uint256 requestId, uint256 agYLDOut);
     event WithdrawCompleted(address indexed to, uint256 usdrAmount);
     event StakeIdleProcessed(uint256 amount);
     event SupportedTokenSet(address indexed token, bool supported);
@@ -98,23 +98,44 @@ contract AgamaTreasury is AccessControl {
 
     // ---- Outflows --------------------------------------------------------
 
-    /// @notice Burns Treasury agaSP, sends the resulting agTOKEN directly to
-    ///         `recipient`. Direct ERC-4626 redeem — no timelock (D2).
-    /// @dev    Recipient handles any further conversion (LP.redeem to USDr).
-    function withdrawFromSP(uint256 agaSPAmount, address recipient)
+    /// @notice Queue an unstake of `sagYLDAmount` Treasury sagYLD shares.
+    ///         The Treasury must wait the SP cooldown (default 7 days,
+    ///         possibly extended by an in-flight settlement) before
+    ///         calling `claimUnstake`. Subject to the same backstop
+    ///         semantics as user stakers — the Treasury absorbs
+    ///         liquidations during the cooldown.
+    function requestUnstakeFromSP(uint256 sagYLDAmount)
         external
         onlyRole(MANAGER_ROLE)
-        returns (uint256 agSharesOut)
+        returns (uint256 requestId)
     {
-        agSharesOut = SP.redeem(agaSPAmount, recipient, address(this));
-        emit WithdrawnFromSP(recipient, agaSPAmount, agSharesOut);
+        requestId = SP.requestUnstake(sagYLDAmount);
     }
 
-    /// @notice Full exit: burns Treasury agaSP, then unwraps the resulting
-    ///         agTOKEN into USDr and forwards to `to`.
-    function withdrawToAddress(uint256 agaSPAmount, address to) external onlyRole(MANAGER_ROLE) {
-        uint256 agShares = SP.redeem(agaSPAmount, address(this), address(this));
-        uint256 usdrOut = LP.redeem(agShares, to, address(this));
+    /// @notice Claim a previously queued unstake. Pulls agYLD from the SP
+    ///         and forwards to `recipient`. If `recipient == address(this)`
+    ///         the agYLD stays on the Treasury (e.g. for re-deployment).
+    function claimUnstakeFromSP(uint256 requestId, address recipient)
+        external
+        onlyRole(MANAGER_ROLE)
+        returns (uint256 agYLDOut)
+    {
+        agYLDOut = SP.claim(requestId);
+        if (recipient != address(this) && agYLDOut > 0) {
+            IERC20(address(LP)).safeTransfer(recipient, agYLDOut);
+        }
+        emit WithdrawnFromSP(recipient, requestId, agYLDOut);
+    }
+
+    /// @notice Full exit: claim the cooldown ticket then unwrap the agYLD
+    ///         into USDr and forward to `to`. Manager must already have
+    ///         called `requestUnstakeFromSP` and waited out the cooldown.
+    function claimAndUnwrapToAddress(uint256 requestId, address to) external onlyRole(MANAGER_ROLE) {
+        uint256 agYLDOut = SP.claim(requestId);
+        uint256 usdrOut = 0;
+        if (agYLDOut > 0) {
+            usdrOut = LP.redeem(agYLDOut, to, address(this));
+        }
         emit WithdrawCompleted(to, usdrOut);
     }
 
