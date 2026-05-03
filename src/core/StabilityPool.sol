@@ -88,7 +88,8 @@ contract AgamaStabilityPool is ERC4626, ERC20Votes, AccessControl, ReentrancyGua
     ///         within [1 day, 30 days].
     uint256 public cooldownDuration;
 
-    uint256 internal constant MIN_COOLDOWN = 1 days;
+    // TEMP for testnet demo — production must restore MIN_COOLDOWN = 1 days.
+    uint256 internal constant MIN_COOLDOWN = 60 seconds;
     uint256 internal constant MAX_COOLDOWN = 30 days;
 
     // ---- Events ----------------------------------------------------------

@@ -23,6 +23,9 @@ broadcast/
 deployments/local/
 deployments/*.local.json
 
+# Local pre-redeploy snapshot backups (never committed)
+deployments/.*.bak
+
 # Coverage
 lcov.info
 coverage/
