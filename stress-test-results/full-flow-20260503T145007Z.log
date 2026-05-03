@@ -1,0 +1,119 @@
+
+════════════════════════════════════════════════════
+  PRE: top-up wallet USDr balances for the lender cycle
+════════════════════════════════════════════════════
+    ✓ minted 100k USDr → MIDCAP_0
+    ✓ minted 100k USDr → MIDCAP_1
+    ✓ minted 100k USDr → MIDCAP_2
+    ✓ minted 100k USDr → RETAIL_4
+
+════════════════════════════════════════════════════
+  CYCLE A — Lender side (4 deposits + 2 withdraws)
+════════════════════════════════════════════════════
+
+── MIDCAP_0 deposits 80000 USDr
+    ✓ agYLD balance: 130000.36823182295
+
+── MIDCAP_1 deposits 60000 USDr
+    ✓ agYLD balance: 110000.27586644657
+
+── MIDCAP_2 deposits 40000 USDr
+    ✓ agYLD balance: 90000.18364612685
+
+── RETAIL_4 deposits 20000 USDr
+    ✓ agYLD balance: 20000.091707396703
+
+── MIDCAP_0 withdraws 30000 USDr
+    ✓ USDr balance post-withdraw: 49999.99999999999
+
+── RETAIL_4 withdraws 5000 USDr
+    ✓ USDr balance post-withdraw: 145000.0
+
+════════════════════════════════════════════════════
+  CYCLE B — Cross-tranche borrows
+════════════════════════════════════════════════════
+
+── MOD_0  collat-A=20000  collat-B=30000  borrow=5000+6000 USDr
+    ✓ MOD_0 total debt 11000.000025911308 ; HF1=1.5455352077195554 HF2=2.3183025028412683
+
+── MOD_1  collat-A=15000  collat-B=20000  borrow=3000+4000 USDr
+    ✓ MOD_1 total debt 7000.000038439774 ; HF1=1.393002855201089 HF2=1.8573366738623809
+
+── MOD_2  collat-A=25000  collat-B=15000  borrow=5000+3000 USDr
+    ✓ MOD_2 total debt 8000.000058198523 ; HF1=2.656388837457986 HF2=1.5938337302362586
+
+── MOD_3  collat-A=10000  collat-B=12000  borrow=2000+2500 USDr
+    ✓ MOD_3 total debt 4500.0000177184365 ; HF1=1.4445957206776399 HF2=1.7335157983136915
+
+════════════════════════════════════════════════════
+  CYCLE C — SP side (3 stakes + 2 requestUnstake)
+════════════════════════════════════════════════════
+
+── MIDCAP_0 stakes 30000 agYLD → sagYLD
+    ✓ sagYLD balance: 80000.0
+
+── MIDCAP_1 stakes 20000 agYLD → sagYLD
+    ✓ sagYLD balance: 70000.0
+
+── MIDCAP_2 stakes 10000 agYLD → sagYLD
+    ✓ sagYLD balance: 60000.0
+
+── MIDCAP_0 requests unstake 10k sagYLD
+    ✓ MIDCAP_0 earmarked: 10000.0
+
+── MIDCAP_2 requests unstake 5k sagYLD
+    ✓ MIDCAP_2 earmarked: 5000.0
+
+════════════════════════════════════════════════════
+  CYCLE D — Repays + collateral release
+════════════════════════════════════════════════════
+
+── MOD_0 repays 2000 USDr (partial)
+    ✓ MOD_0 debt remaining: 9000.003627287893
+
+── MOD_1 repays 1500 USDr (partial)
+    ✓ MOD_1 debt remaining: 5500.001943937373
+
+── MOD_2 repays 2500 USDr (partial)
+    ✓ MOD_2 debt remaining: 5500.001821994857
+
+── MOD_3 full repay + withdraw collateral
+    ✓ MOD_3 fully repaid
+    ✓ MOD_3 collateral released
+
+════════════════════════════════════════════════════
+  INVARIANT CHECKS
+════════════════════════════════════════════════════
+
+── I1: Pool.totalAssets ?= cash on pool + DebtToken.totalSupply
+    totalAssets = 1638956.908215396
+    cash+debt   = 1638956.9092340868
+    diff        = 0.001018690471922889
+    ✓ I1 within 1 USDr (rounding-safe)
+
+── I2: Pool.totalSupply > 0  ∧  totalSupply ratio reasonable
+    ✓ totalAssets/totalSupply ratio = 0.9999955924878127 (within ±1%)
+
+── I3: SP.totalAssets ?= LP.balanceOf(SP)
+    ✓ SP.totalAssets = LP.balanceOf(SP) = 903961.3733497582
+
+── I4: every active borrower has HF ≥ 1
+    ✓ MOD_0 HF=1.8889882679079486 ≥ 1
+    ✓ MOD_1 HF=1.7729146000826201 ≥ 1
+    ✓ MOD_2 HF=3.8638391002506203 ≥ 1
+    ✓ RETAIL_2 HF=1.700085008250622 ≥ 1
+
+════════════════════════════════════════════════════
+  FINAL POOL STATE
+════════════════════════════════════════════════════
+  Pool TVL:     1,638,956.91 USDr
+  Cash:         1,058,955.00 USDr
+  Total debt:   580,001.91 USDr
+  Utilization:  35.39%
+  Lender APR:   1.7641%
+  Borrow APR:   5.5388%
+  SP TVL:       903,961.37 agYLD
+
+════════════════════════════════════════════════════════════
+  ✓ FLOW STRESS PASS — all invariants hold
+════════════════════════════════════════════════════════════
