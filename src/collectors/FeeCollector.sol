@@ -25,7 +25,6 @@ contract AgamaFeeCollector is AccessControl {
 
     bytes32 public constant FEE_ORIGINATION = keccak256("FEE_ORIGINATION");
     bytes32 public constant FEE_VAULT_OPENING = keccak256("FEE_VAULT_OPENING");
-    bytes32 public constant FEE_DEPOSIT = keccak256("FEE_DEPOSIT");
     bytes32 public constant FEE_PROTOCOL_REVENUE = keccak256("FEE_PROTOCOL_REVENUE");
 
     ITreasuryDeposit public treasury;

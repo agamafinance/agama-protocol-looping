@@ -75,7 +75,6 @@ contract AgamaLendingPool is ERC4626, ILendingPool, AccessControl, Pausable, Ree
 
     uint256 public reserveFactorBps;
     uint256 public originationFeeBps;
-    uint256 public depositFeeBps;
     uint256 public vaultOpeningFee;
     uint256 public minBorrowAmount;
     uint256 public supplyCap;
@@ -162,8 +161,7 @@ contract AgamaLendingPool is ERC4626, ILendingPool, AccessControl, Pausable, Ree
 
         // V1 production risk parameters — IDENTICAL on testnet and mainnet.
         reserveFactorBps = 1000; // 10%
-        originationFeeBps = 50; // 50 bps
-        depositFeeBps = 0;
+        originationFeeBps = 0; // disabled — Aave-style, no origination fee
         vaultOpeningFee = 0;
         minBorrowAmount = 1e18; // 1 USDr — testnet/demo flexibility
         supplyCap = type(uint256).max;

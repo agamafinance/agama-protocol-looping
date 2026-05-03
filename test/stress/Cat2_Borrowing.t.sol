@@ -30,7 +30,7 @@ contract Cat2_BorrowingStressTest is StressBase {
         uint256 hf = _hf(actor, T_SRES);
         // HF ≈ 2.833...e27. Allow ±0.5%.
         assertApproxEqRel(hf, 2.833e27, 5e15, "S2.1: HF ~= 2.83");
-        assertEq(usdr.balanceOf(actor), INITIAL_USDR_PER_BORROWER + 30_000e18 * 9950 / 10_000, "S2.1: net of 50bps fee");
+        assertEq(usdr.balanceOf(actor), INITIAL_USDR_PER_BORROWER + 30_000e18, "S2.1: full borrow received (no origination fee)");
     }
 
     // ────────────────────────────────────────────────────────────────────

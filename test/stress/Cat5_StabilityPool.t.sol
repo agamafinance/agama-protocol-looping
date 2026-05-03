@@ -127,6 +127,10 @@ contract Cat5_StabilityPoolStressTest is StressBase {
     // ────────────────────────────────────────────────────────────────────
 
     function test_S5_6_treasuryAutoStakeAfterFee() public {
+        // Re-enable origination fee for this fee-mechanism test
+        vm.prank(admin);
+        pool.setOriginationFee(50);
+
         _seedLp();
         address actor = moderates[0];
         // Borrow 500k → fee = 50bps × 500k = 2500 USDr → Treasury auto-stakes.

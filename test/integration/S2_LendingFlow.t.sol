@@ -123,10 +123,9 @@ contract S2LendingFlowTest is Test {
         _aliceDepositsCollateral(1_000_000e18); // 1M AMFI worth ~1M USDr at par
         _aliceBorrows(500_000e18); // 50% LTV
 
-        // Alice receives net = 500k - 50bps = 497.5k
-        uint256 fee = (500_000e18 * 50) / 10_000;
-        assertEq(usdr.balanceOf(alice), 500_000e18 - fee);
-        assertEq(usdr.balanceOf(address(feeSink)), fee, "origination fee routed");
+        // Alice receives full borrow — origination fee is disabled (Aave-style)
+        assertEq(usdr.balanceOf(alice), 500_000e18);
+        assertEq(usdr.balanceOf(address(feeSink)), 0, "no origination fee charged");
 
         // Debt minted
         assertEq(debt.balanceOf(alice), 500_000e18);
@@ -373,8 +372,7 @@ contract S2LendingFlowTest is Test {
     function test_productionParams_consistent() public view {
         // Pool params (identical mainnet/testnet)
         assertEq(pool.reserveFactorBps(), 1000);
-        assertEq(pool.originationFeeBps(), 50);
-        assertEq(pool.depositFeeBps(), 0);
+        assertEq(pool.originationFeeBps(), 0);
         assertEq(pool.vaultOpeningFee(), 0);
         // IRM
         IRM.Params memory p = pool.getIRMParams();

@@ -142,6 +142,10 @@ contract S5FullStackTest is Test {
     // ====================================================================
 
     function test_originationFee_routesToTreasury_autoStakes() public {
+        // Re-enable origination fee for this specific test (default = 0 since Aave-style switch)
+        vm.prank(admin);
+        pool.setOriginationFee(50);
+
         _bobDeposit(2_000_000e18);
         _aliceLeveraged(1_000_000e18, 500_000e18);
 
@@ -209,6 +213,9 @@ contract S5FullStackTest is Test {
     ///         auto-stake) lands ~100% of the nominal fee in the SP, not 75%
     ///         or 80% as before the Option A fix.
     function test_originationFee_fullPathToSP() public {
+        vm.prank(admin);
+        pool.setOriginationFee(50);
+
         _bobDeposit(2_000_000e18);
         _aliceLeveraged(1_000_000e18, 500_000e18);
 

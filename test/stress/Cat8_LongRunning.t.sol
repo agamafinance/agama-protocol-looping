@@ -38,6 +38,10 @@ contract Cat8_LongRunningStressTest is StressBase {
     // ────────────────────────────────────────────────────────────────────
 
     function test_S8_2_treasuryBonusAccumulation() public {
+        // Re-enable origination fee for this fee-mechanism test
+        vm.prank(admin);
+        pool.setOriginationFee(50);
+
         _seedLpSpAndOpen(); // 1 origination fee already collected
         uint256 t1 = sp.balanceOf(address(treasury));
 
