@@ -1,78 +1,46 @@
 #!/usr/bin/env bash
 # Shared lib for stress-live scripts. Sourced by every cat script.
-# Usage: source script/stress-live/_lib.sh
-
 set -e
 cd "$(dirname "${BASH_SOURCE[0]}")/../.."
 source .env
 source script/stress-live/keys.env
 
-# ---- Live deployment (V2 cooldown SP — 2026-05-03) ----
+# ---- Live deployment (V3 isolated debt — auto-regenerated) ----
 export DEPLOYER=0xf6d3C9Ed2115A5197F96f6189F6D63B51022Fe16
-export USDR=0x3E7C9256CdA8aa079f360a9f15A52D003912a936
-export POOL=0x33608779D60B608e316C0B731d874EFa208cbD1d
-export DEBT=0xEA10aaDECE23527e26C353b7490797127cc40Bd6
-export SP=0x1E158df48170753B286A0Afd70Dc6E92e9bcDf6C
-export PROXY=0x5491A2EF1D1FE9E2a09fe6CC85AF835d780Aa5C4
-export SVAULT=0xd6d431fB35e6821C541422784EA4E5DE604a15a6
-export TREASURY=0x9C32D5797Cc6Ea924dBd6393250dCF28A7AFD165
-export RF=0x7A1d13a6770A1729ae70826156ae7826fC7b30EB
+export USDR=0x74eF358563dcBa0FdDEE6FE7c944e859C001f9D6
+export POOL=0x2d621d442B4B652001448a7D5Ce7891bE54b9be0
+export DEBT=0x9F918bB67E503999d20F0d0641c76A0Ca76E8E96
+export SP=0x4A56BB11bbfEDf92ae45f2473fb35AAD1949BeAd
+export PROXY=0xdf90B5d51f879dc3b8075ca0ed4b9306bDE225B5
+export SVAULT=0x9a4997632272177E0d6fF161F5c631235F887c6d
+export TREASURY=0x6af9fe9A7a75aEc304bDbd79Cb7056285691D7aE
+export RF=0xbd6E5BDa073Fc88ddc0091C34e963657a37E594a
 
-# Tranches (V2 delta deploy 2026-05-03)
-export SRESOLV_TOKEN=0x87B050a6a3f1dB8A276EcaE3b5214639FfD9b657
-export SRESOLV_ORACLE=0xc7b23e987Dfb8fB6Af226982dc65239087Cc3D20
-export SRESOLV_ADAPTER=0x9eb5AB72CE6A46F92d6a1750Dc8287cB05A94692
+# Tranches
+export SRESOLV_TOKEN=0x18524b97ba62fa0Acb28f36A08766dF52B25EAd6
+export SRESOLV_ORACLE=0xf4360870d36f8bA4abC152421EfEAfb147c4b015
+export SRESOLV_ADAPTER=0xE0c7861736B78F431B938f3481ef6a838FC64552
 
-export JRESOLV_TOKEN=0xB4B1CE855bCAD4E3B5Fdcc1EAC7EE3714D638AAf
-export JRESOLV_ORACLE=0x77Bd525F8F3c8D59125AeC6d09a5FaB7A854b291
-export JRESOLV_ADAPTER=0xeDB3B2e962Aa51823c47632f1440cFE078fe143d
+export JRESOLV_TOKEN=0x821e0915AF3504382D591BA6a45a930d1e8897f6
+export JRESOLV_ORACLE=0xf1fa2229d4AB3C31f7B0781f84383f22aDE24a61
+export JRESOLV_ADAPTER=0x58a515D553Ca6C841e84eEfeae845723f345c66f
 
-export SDIGCAP_TOKEN=0xB6a4316eAa6071d4302181a3Dfc25742dcDc345F
-export SDIGCAP_ORACLE=0x4Df85Deac96f65d809024023906c65F07C105633
-export SDIGCAP_ADAPTER=0xD767f54533c79CE262A92fcC60e917a27E432398
+export SDIGCAP_TOKEN=0x10c4c65CBdA4DEE8a1dee8F31B005437FB193931
+export SDIGCAP_ORACLE=0x446709CAFBeA671C4E0E9deeefc319966B3Cd79C
+export SDIGCAP_ADAPTER=0x65a693F0D0C51f41C86bd40EC46CF652ea778937
 
-export JDIGCAP_TOKEN=0xE12C445C0B508F12596667405eEd937630b270fF
-export JDIGCAP_ORACLE=0x92bf4901965dD3d7fAADf709585864612c428d0D
-export JDIGCAP_ADAPTER=0x7652e1a7CB213445ade0E9Ae5370276f873e7153
+export JDIGCAP_TOKEN=0x6bF68516f21FC26Dc5dA95D1DCC95FfEfA94C980
+export JDIGCAP_ORACLE=0xC37744397F0fEf5a907224Fa524b8a0826388737
+export JDIGCAP_ADAPTER=0x0334F025B2D82A3d5E00009CD2Bb2f0158164797
 
-export SCONDO_TOKEN=0x0a3ecf2bA64222916c6D3Af9C32CB0778712DFE4
-export SCONDO_ORACLE=0x08CA1654ec931d42DaF90a42Ca4c1bad9B328E4E
-export SCONDO_ADAPTER=0x24148e83F12763BE9F27069448E6df8d5D88445A
+export SCONDO_TOKEN=0x2cac9B27469FF3a0966649d8bA90604F22d83FaA
+export SCONDO_ORACLE=0x7796F8e61Cfe374ea5a6183D723C9f7AddAdbB6b
+export SCONDO_ADAPTER=0x99b8271cC04771E80e2950D942e9dE4f08F8fBA9
 
-export JCONDO_TOKEN=0x5D2d57a53EE34544812BE6081e9F47E204159231
-export JCONDO_ORACLE=0x82a1FD798584B2aa0Aaf1085A7ecc48493D1236a
-export JCONDO_ADAPTER=0x2351feA32d9f05787524A5cB0A0f879a16A9c045
+export JCONDO_TOKEN=0x94067D5aE45C50b60dcbDB6145900D68E880DFfF
+export JCONDO_ORACLE=0x492ABaC455d4c93cf502aDAABeEC7eA696ea47F1
+export JCONDO_ADAPTER=0xACef606Eae71b7946f24ce61E4CE1b6Ed2C17126
 
+# RPC + chain
 export RPC="$RAYLS_TESTNET_RPC"
-export ZERO_BYTES=$(cast abi-encode 'f(uint256)' 0)
-export ONE=1000000000000000000  # 1e18
-
-section() { echo ""; echo "════════════════════════════════════════════════════════════"; echo "  $1"; echo "════════════════════════════════════════════════════════════"; }
-kv()      { printf "  %-44s %s\n" "$1" "$2"; }
 call()    { cast call --rpc-url "$RPC" "$@"; }
-send()    {
-  local pk="$1"; shift
-  cast send --rpc-url "$RPC" --private-key "$pk" "$@" 2>&1 | grep -E '^(status|Error|Context)' | head -3
-}
-
-# Track lifetime native gas spent in this run for the gas budget report.
-GAS_LOG="${STRESS_RESULTS_DIR:-/tmp}/gas-budget.txt"
-mkdir -p "$(dirname "$GAS_LOG")"
-note_gas() {
-  local label="$1"; local amount="$2"
-  echo "$(date -u +%Y-%m-%dT%H:%M:%SZ)  $label  $amount" >> "$GAS_LOG"
-}
-
-deployer_balance() {
-  cast balance --ether --rpc-url "$RPC" "$DEPLOYER"
-}
-
-# ---- Invariant checks (live) -------------------------------------------
-inv_check() {
-  local label="$1"
-  local cash=$(call $USDR 'balanceOf(address)(uint256)' $POOL | awk '{print $1}')
-  local debtSupply=$(call $DEBT 'totalSupply()(uint256)' | awk '{print $1}')
-  local lpAssets=$(call $POOL 'totalAssets()(uint256)' | awk '{print $1}')
-  local diff=$(python3 -c "print(int('$lpAssets') - int('$cash') - int('$debtSupply'))")
-  printf "  INV1[%s] cash=%s debt=%s ta=%s diff=%s\n" "$label" "$cash" "$debtSupply" "$lpAssets" "$diff"
-}
