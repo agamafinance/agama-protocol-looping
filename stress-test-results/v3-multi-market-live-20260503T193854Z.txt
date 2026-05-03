@@ -1,0 +1,42 @@
+═══════════════════════════════════════════════════════════════
+  V3 MULTI-MARKET ISOLATION — LIVE CHAIN VERIFICATION
+═══════════════════════════════════════════════════════════════
+
+User: 0xb2925153613CFA370bA9E894d9DB28297ae6AA98 (RETAIL_3)
+
+Setup
+-----
+- 200k sRESOLV deposited as collat
+- 200k sDIGCAP deposited as collat
+- 200k sCONDO  deposited as collat
+
+Borrows (each from a different market)
+--------------------------------------
+- 50,000 USDr via sRESOLV
+- 30,000 USDr via sDIGCAP
+- 20,000 USDr via sCONDO
+- Total borrowed: 100,000 USDr
+
+Per-market debt after borrows
+-----------------------------
+DebtToken.balanceOf(user, sRESOLV_adapter): 50,000.00 USDr
+DebtToken.balanceOf(user, sDIGCAP_adapter): 30,000.00 USDr
+DebtToken.balanceOf(user, sCONDO_adapter):  20,000.00 USDr
+totalUserDebtAcrossMarkets(user):          100,000.00 USDr (sum, view-only)
+
+Action: repay(sRESOLV, _, 10000)
+--------------------------------
+sRESOLV delta:  -9,999.9995 USDr  (target: -10,000 -- PASS)
+sDIGCAP delta:  +0.0003 USDr      (interest accrual only)
+sCONDO  delta:  +0.0002 USDr      (interest accrual only)
+
+VERDICT
+-------
+V3 isolation invariant holds: a repay scoped to adapter X reduces only
+the (user, X) debt entry. Other markets the user has positions on are
+mathematically untouched (modulo per-block interest accrual).
+
+In V2 this was structurally impossible — the global debt counter would
+have decremented by 10k, and HF on every market would have shifted by
+~10/total ratio, which is the cross-collateral spillover that enabled
+the dust-exploit.
