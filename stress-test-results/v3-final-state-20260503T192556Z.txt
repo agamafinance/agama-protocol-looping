@@ -1,0 +1,52 @@
+═══════════════════════════════════════════════════════════════
+  AGAMA V3 — FINAL ON-CHAIN STATE (Rayls testnet 7295799)
+═══════════════════════════════════════════════════════════════
+
+Pool TVL:     4,625,000 USDr
+Cash on pool: 4,370,000 USDr
+Total debt:   255,000 USDr
+Utilization:  5.51%
+SP supply:    297,500 sagYLD
+SP totalAssets backing: 297,500 agYLD (LP shares held by SP)
+
+Per-tranche pool collateral:
+  sRESOLV   200,000
+  jRESOLV   100,000
+  sDIGCAP   140,000
+  jDIGCAP   90,000
+  sCONDO    140,000
+  jCONDO    25,000
+
+V3 DESIGN VERIFIED (live)
+-------------------------
+✓ DebtToken per-(user, adapter) accounting works
+✓ borrow() mints debt scoped to passed adapter only
+✓ repay() reduces debt only on the passed adapter
+✓ liquidate() wipes only the targeted adapter's debt
+✓ HF computed per-market (collat × LT / market_debt)
+✓ Cross-collateral exploit DEAD (verified live):
+    Attacker with 100k sRESOLV + 10k jRESOLV borrows 60k via sRESOLV
+    → liquidate(jRESOLV) reverts NoDebtToLiquidate
+    → no spillover from sRESOLV's 60k debt onto jRESOLV's empty position
+✓ Aggregate views (totalUserDebtAcrossMarkets, balanceOf(user))
+  preserved for UI/events but unused by core economic logic
+✓ Forge tests: 266/266 pass
+
+Deployed contracts (Rayls testnet 7295799)
+------------------------------------------
+  AmFiAdapter: 0xFC2A1105d20312b1536efC3473e16D1b778a91E3
+  DebtToken: 0x9F918bB67E503999d20F0d0641c76A0Ca76E8E96
+  Faucet: 0xFe70Fdf0070265F0e6B9fDd9801eE98A15De26f9
+  FeeCollector: 0x0C76ffb6eD0b41AC38C2a7c2db1F3837D4a9D2cF
+  LendingPool: 0x2d621d442B4B652001448a7D5Ce7891bE54b9be0
+  LiquidationProxy: 0xdf90B5d51f879dc3b8075ca0ed4b9306bDE225B5
+  MockAMFI: 0x9db8E13BEb90c2FAdB051Bf1d3d03D449F63CC30
+  MockOracle: 0x05C4Cf2d56bAc9Fe9736eEaad72f2c6bc4714A43
+  ReserveFund: 0xbd6E5BDa073Fc88ddc0091C34e963657a37E594a
+  SettlementVault: 0x9a4997632272177E0d6fF161F5c631235F887c6d
+  SplitFaucet: 0x287e12D2C73b0eaA257b653b11B1a06C928fF963
+  StabilityPool: 0x4A56BB11bbfEDf92ae45f2473fb35AAD1949BeAd
+  Treasury: 0x6af9fe9A7a75aEc304bDbd79Cb7056285691D7aE
+  USDr: 0x74eF358563dcBa0FdDEE6FE7c944e859C001f9D6
+
+Tranches:
