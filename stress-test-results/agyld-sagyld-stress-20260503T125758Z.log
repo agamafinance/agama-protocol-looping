@@ -1,0 +1,30 @@
+════════════════════════════════════════════════════════
+  agYLD / sagYLD live stress  (delta-based)
+  P=0xb2925153613CFA370bA9E894d9DB28297ae6AA98
+  Q=0x1A81BcC9F0A5539d2e03dA00bD6E52BEC84b5Db6
+  R=0x4c80283758c9089daC4d78579D2F894798cd38Ae
+════════════════════════════════════════════════════════
+
+── setup-1: P deposits 80k USDr → agYLD
+    ✓ P agYLD = 109999.99872780309
+
+── setup-2: Q deposits 60k USDr → agYLD
+    ✓ Q agYLD = 59999.99938719313
+
+── T1: P → R 10k agYLD (delta-based assertion)
+    ✓ R agYLD delta matches expected
+
+── T2: Q stakes all → sagYLD, transfer 5k → R (vanilla ERC-20 ✓)
+    ✓ Q sagYLD post-stake = 199999.99854522015
+    ✓ R sagYLD delta matches expected
+
+── T3: P stakes 30k, requestUnstake half, transfer remaining sagYLD → balance 0
+    ✓ P earmarked = 30000.0
+    ✓ P sagYLD drained to 0 (request shares forfeit ✓)
+
+── T4: R issues two staggered requestUnstake on its 5k sagYLD
+    ✓ R sagYLD = 15000.0
+    ✓ R earmarked delta matches expected
+
+── T5: R claim id=0 immediately → must revert (CooldownNotElapsed)
+T5 PASS — claim before cooldown reverted (manual verification)
