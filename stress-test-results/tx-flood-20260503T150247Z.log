@@ -1,0 +1,136 @@
+════════════════════════════════════════════════════════════
+  TX FLOOD — 8 waves of activity
+════════════════════════════════════════════════════════════
+    INITIAL              util=35.39%  bAPR=5.54%  lAPR=1.76%  TVL=1638957  debt=580002
+
+════════════════════════════════════════════════════
+  WAVE 1 — 6 fresh deposits → agYLD → SP stake
+════════════════════════════════════════════════════
+
+── AGGRESSIVE_0  deposit 30000 → stake 20000
+    ✓ agYLD=10000.128832281476 sagYLD=20000.0
+
+── AGGRESSIVE_1  deposit 25000 → stake 15000
+    ✓ agYLD=10000.106998213541 sagYLD=15000.0
+
+── AGGRESSIVE_2  deposit 20000 → stake 10000
+    ✓ agYLD=10000.085327679093 sagYLD=10000.0
+
+── MIDCAP_4  deposit 18000 → stake 12000
+    ✓ agYLD=6000.076534929954 sagYLD=12000.0
+
+── RETAIL_0  deposit 15000 → stake 8000
+    ✓ agYLD=87000.0644260643 sagYLD=8000.0
+
+── RETAIL_1  deposit 12000 → stake 6000
+    ✓ agYLD=6000.050691675625 sagYLD=176000.0006049536
+    AFTER WAVE 1         util=32.97%  bAPR=5.30%  lAPR=1.57%  TVL=1758957  debt=580002
+
+════════════════════════════════════════════════════
+  WAVE 2 — 5 cross-tranche borrows (push util up)
+════════════════════════════════════════════════════
+
+── AGG_0  100000 collat / 50000 USDr borrow
+    ✓ AGG_0 HF=1.7000922256468798
+
+── AGG_1  80000 collat / 40000 USDr borrow
+    ✓ AGG_1 HF=1.7000921578277752
+
+── AGG_2  60000 collat / 20000 USDr borrow
+    ✓ AGG_2 HF=1.9502120773882838
+
+── MID_4  50000 collat / 30000 USDr borrow
+    ✓ MID_4 HF=5.312764050639627
+
+── RET_1  40000 collat / 15000 USDr borrow
+    ✓ RET_1 HF=1.7335228193729975
+    AFTER WAVE 2         util=40.07%  bAPR=6.01%  lAPR=2.17%  TVL=1759582  debt=705002
+
+════════════════════════════════════════════════════
+  WAVE 3 — 4 sagYLD vanilla transfers
+════════════════════════════════════════════════════
+    ✓ AGG_0 → RET_0  2000 sagYLD
+    ✓ AGG_1 → AGG_2  1500 sagYLD
+    ✓ MID_4 → RET_1  1000 sagYLD
+    ✓ RET_0 → MID_4  500 sagYLD
+
+════════════════════════════════════════════════════
+  WAVE 4 — 3 agYLD vanilla transfers
+════════════════════════════════════════════════════
+    ✓ AGG_0 → AGG_2  3000 agYLD
+    ✓ AGG_1 → RET_0  2500 agYLD
+    ✓ RET_0 → RET_1  1000 agYLD
+    AFTER WAVE 4         util=40.07%  bAPR=6.01%  lAPR=2.17%  TVL=1759582  debt=705002
+
+════════════════════════════════════════════════════
+  WAVE 5 — 4 partial repays (drop util)
+════════════════════════════════════════════════════
+
+── AGG_0  repay 20000
+    ✓ AGG_0 repaid
+
+── AGG_1  repay 15000
+    ✓ AGG_1 repaid
+
+── AGG_2  repay 8000
+    ✓ AGG_2 repaid
+
+── MID_4  repay 10000
+    ✓ MID_4 repaid
+    AFTER WAVE 5         util=37.17%  bAPR=5.72%  lAPR=1.91%  TVL=1759582  debt=654002
+
+════════════════════════════════════════════════════
+  WAVE 6 — 3 additional borrows (util back up)
+════════════════════════════════════════════════════
+    ✓ AGG_0 borrowed extra 15k USDr
+    ✓ AGG_1 borrowed extra 10k USDr
+    ✓ MID_4 borrowed extra 8k USDr
+    AFTER WAVE 6         util=39.04%  bAPR=5.90%  lAPR=2.07%  TVL=1759747  debt=687002
+
+════════════════════════════════════════════════════
+  WAVE 7 — 4 requestUnstake (build cooldown queue)
+════════════════════════════════════════════════════
+    ✓ AGG_0 requested 5k unstake
+    ✓ AGG_1 requested 4k unstake
+    ✓ AGG_2 requested 3k unstake
+    ✓ MID_4 requested 2k unstake
+
+════════════════════════════════════════════════════
+  WAVE 8 — mixed deposits + LP withdraws
+════════════════════════════════════════════════════
+    ✓ RET_0 withdrew 5k USDr
+    ✓ RET_1 withdrew 3k USDr
+    ✓ MIDCAP_0 deposited 25000 USDr
+    ✓ MIDCAP_1 deposited 18000 USDr
+    ✓ MIDCAP_2 deposited 12000 USDr
+    AFTER WAVE 8         util=38.02%  bAPR=5.80%  lAPR=1.99%  TVL=1806748  debt=687003
+
+════════════════════════════════════════════════════
+  WAVE 9 — 6 fresh wallets join (conservatives, retails)
+════════════════════════════════════════════════════
+
+── CONS_1  deposit 8000 USDr → stake 5000 agYLD
+    ✓ CONS_1 active
+
+── CONS_4  deposit 6000 USDr → stake 4000 agYLD
+    ✓ CONS_4 active
+
+── RETAIL_2  deposit 7000 USDr → stake 3000 agYLD
+    ✓ RETAIL_2 active
+
+── RETAIL_3  deposit 5000 USDr → stake 2000 agYLD
+    ✓ RETAIL_3 active
+
+── MODERATE_0  deposit 4000 USDr → stake 1500 agYLD
+    ✓ MODERATE_0 active
+
+── MODERATE_2  deposit 3000 USDr → stake 1000 agYLD
+    ✓ MODERATE_2 active
+    AFTER WAVE 9 (final) util=37.34%  bAPR=5.73%  lAPR=1.93%  TVL=1839748  debt=687003
+
+════════════════════════════════════════════════════════════
+  ✓ TX FLOOD DONE — heavy on-chain activity generated
+    Pool TVL:    1839747.7713656323 USDr
+    Total debt:  687002.7294145424 USDr
+    SP supply:   992251.4493416551 sagYLD
+════════════════════════════════════════════════════════════
