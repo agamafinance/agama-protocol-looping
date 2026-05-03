@@ -193,27 +193,40 @@ contract Cat4_LiquidationsStressTest is StressBase {
     // ────────────────────────────────────────────────────────────────────
     // S4.7 — Multi-collateral liquidation
     // ────────────────────────────────────────────────────────────────────
-    //   Borrower has collateral on TWO adapters (sRES + sDIG) but the
-    //   tightest adapter (jRES) is the binding constraint after a crash.
-    //   Liquidator picks the binding adapter.
+    //   V3 ISOLATION VERIFICATION: this scenario was the cross-collateral
+    //   exploit in V2. A user with 100k sRES + 100k jRES could borrow 70k
+    //   against sRES (passes Senior MAX_LTV 75%), and immediately a
+    //   liquidator could seize jRES because the GLOBAL debt made jRES's
+    //   HF < 1 (0.65 × 100 / 70 = 0.928). Wiping jRES would clear the
+    //   ENTIRE debt for only ~10% of collat — free money for liquidator.
+    //
+    //   In V3 the debt is per-market: borrowing on sRES does NOT touch
+    //   jRES's debt counter (which stays 0), so jRES's HF is ∞ and the
+    //   exploit is unreachable.
 
-    function test_S4_7_multiCollatLiquidation() public {
+    function test_S4_7_crossCollatExploit_isDead() public {
         _seedLpAndSp();
         address actor = aggressives[3];
         _openVault(actor);
         _depositCollat(actor, T_SRES, 100_000e18);
         _depositCollat(actor, T_JRES, 100_000e18);
-        // Borrow 70k against senior. Senior MAX_LTV check: 0.75*100/70=1.07 OK.
-        // Junior LT check (post-borrow): 0.65*100/70=0.928 → already liquidatable!
-        _borrow(actor, T_SRES, 70_000e18);
+        _borrow(actor, T_SRES, 70_000e18); // borrow ONLY on sRES
         _verifyInvariants();
-        assertLt(_hf(actor, T_JRES), 1e27, "S4.7: junior liquidatable");
+
+        // sRES is healthy (0.85 × 100 / 70 ≈ 1.214).
         assertGt(_hf(actor, T_SRES), 1e27, "S4.7: senior safe");
 
-        // Liquidate via the JUNIOR adapter (binding).
-        _liquidate(actor, T_JRES);
-        _verifyInvariants();
-        assertEq(debt.balanceOf(actor), 0, "S4.7: debt cleared via junior");
+        // jRES has ZERO market-debt -> HF = inf. Old exploit assumed HF<1 here.
+        assertEq(_hf(actor, T_JRES), type(uint256).max, "S4.7: jRES has no debt -> HF infinite");
+
+        // Attempt to liquidate jRES → must revert (no debt on this market).
+        address jresAd = address(tranches[T_JRES].adapter);
+        vm.prank(manager);
+        vm.expectRevert();
+        proxy.liquidate(jresAd, jresAd, actor, ZERO_DATA, 0);
+
+        // Aggregate debt is intact: user still owes 70k via sRES.
+        assertGt(debt.balanceOf(actor), 0, "S4.7: debt unchanged - exploit dead");
     }
 
     // ────────────────────────────────────────────────────────────────────

@@ -82,36 +82,38 @@ contract Cat2_BorrowingStressTest is StressBase {
     // ────────────────────────────────────────────────────────────────────
     // S2.5 — Multi-collateral (same actor, two senior tranches)
     // ────────────────────────────────────────────────────────────────────
-    //   V1 maintains a SINGLE global debt per user. The user can post
-    //   collateral across multiple adapters; HF is computed *per adapter*
-    //   against the same total debt. So two seniors with equal value &
-    //   the same LT each see the same HF.
+    //   V3 ISOLATION: debt is per-market. A user can post collateral on
+    //   multiple adapters, but each market has its own independent debt
+    //   counter. HF on adapter X depends ONLY on (collat_X, debt_X). A
+    //   borrow on adapter Y has zero effect on adapter X's HF.
 
     function test_S2_5_multiCollateralSameType() public {
         _seedLp();
         address actor = moderates[0];
         _openVault(actor);
-        // 50k sRESOLV + 50k sDIGCAP — combined value 100k, but each adapter
-        // only sees its own collateral.
         _depositCollat(actor, T_SRES, 50_000e18);
         _depositCollat(actor, T_SDIG, 50_000e18);
-        _borrow(actor, T_SRES, 30_000e18); // borrow against sRESOLV adapter
+        _borrow(actor, T_SRES, 30_000e18); // borrow ONLY against sRESOLV
+
         _verifyInvariants();
 
-        // HF measured against sRESOLV: collat=50k, debt=30k, LT=85% → 1.416.
-        // HF measured against sDIGCAP: collat=50k, SAME debt=30k → identical.
+        // sRESOLV: collat=50k, debt=30k, LT=85% → 0.85 × 50 / 30 = 1.4166.
         uint256 hfRES = _hf(actor, T_SRES);
-        uint256 hfDIG = _hf(actor, T_SDIG);
         assertApproxEqRel(hfRES, 1.4166e27, 5e15, "S2.5: HF sRES");
-        assertApproxEqRel(hfDIG, 1.4166e27, 5e15, "S2.5: HF sDIG");
+
+        // sDIGCAP: collat=50k, debt=ZERO on this market → HF = ∞.
+        // Old behavior was global debt → HF same as sRES; that path was the
+        // root of the cross-collat exploit. V3 isolates per-market.
+        uint256 hfDIG = _hf(actor, T_SDIG);
+        assertEq(hfDIG, type(uint256).max, "S2.5: sDIG has no debt -> HF infinite");
     }
 
     // ────────────────────────────────────────────────────────────────────
     // S2.6 — Cross-tranche multi-collateral (senior + junior same actor)
     // ────────────────────────────────────────────────────────────────────
-    //   Same global debt seen by both adapters → HF differs because
-    //   LT is different (sRES 85%, jRES 65%). The TIGHTEST adapter
-    //   determines liquidation risk.
+    //   V3: each market sees only its own debt. Borrowing on Senior
+    //   does NOT degrade the Junior position's HF because Junior's
+    //   debt counter is untouched.
 
     function test_S2_6_crossTrancheMultiCollat() public {
         _seedLp();
@@ -119,15 +121,17 @@ contract Cat2_BorrowingStressTest is StressBase {
         _openVault(actor);
         _depositCollat(actor, T_SRES, 100_000e18);
         _depositCollat(actor, T_JRES, 100_000e18);
-        _borrow(actor, T_SRES, 50_000e18);
+        _borrow(actor, T_SRES, 50_000e18); // borrow ONLY against sRESOLV
         _verifyInvariants();
 
-        uint256 hfS = _hf(actor, T_SRES); // 0.85 * 100 / 50 = 1.7
-        uint256 hfJ = _hf(actor, T_JRES); // 0.65 * 100 / 50 = 1.3
+        uint256 hfS = _hf(actor, T_SRES); // 0.85 × 100 / 50 = 1.7
         assertApproxEqRel(hfS, 1.7e27, 5e15, "S2.6: HF senior");
-        assertApproxEqRel(hfJ, 1.3e27, 5e15, "S2.6: HF junior");
-        // Junior adapter is the binding constraint — drop the tightest first.
-        assertGt(hfS, hfJ, "S2.6: senior HF wider than junior");
+
+        // jRESOLV has zero debt → HF infinite (was 1.3 in the old
+        // global-debt model, which would have been the binding constraint
+        // and the dust-exploit vector).
+        uint256 hfJ = _hf(actor, T_JRES);
+        assertEq(hfJ, type(uint256).max, "S2.6: jRESOLV has no debt -> HF infinite");
     }
 
     // ────────────────────────────────────────────────────────────────────

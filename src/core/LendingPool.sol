@@ -106,7 +106,7 @@ contract AgamaLendingPool is ERC4626, ILendingPool, AccessControl, Pausable, Ree
     event AssetDeposited(address indexed user, address indexed adapter, bytes data);
     event AssetWithdrawn(address indexed user, address indexed adapter, bytes data);
     event Borrow(address indexed user, address indexed adapter, uint256 amount, uint256 originationFee);
-    event Repay(address indexed payer, address indexed user, uint256 amount);
+    event Repay(address indexed user, address indexed adapter, uint256 amount);
     event AdapterRegistered(address indexed adapter, bool supported);
     event FeeRecipientSet(address indexed recipient);
     event StabilityPoolSet(address indexed sp);
@@ -265,12 +265,15 @@ contract AgamaLendingPool is ERC4626, ILendingPool, AccessControl, Pausable, Ree
         _reserve.updateState();
         _materializeRedistribution(adapter, msg.sender);
 
-        // Health-factor preview when there's still debt outstanding. If oracle
-        // is stale, `getAssetValue` reverts inside the adapter — blocking
-        // partial withdraws while letting full exits work (debt = 0 path
-        // skips the HF check entirely, and `adapter.withdraw` itself doesn't
-        // depend on the oracle).
-        uint256 debt = _userDebt(msg.sender);
+        // Health-factor preview when there's still debt outstanding ON
+        // THIS market. If oracle is stale, `getAssetValue` reverts inside
+        // the adapter — blocking partial withdraws while letting full
+        // exits work (debt = 0 path skips the HF check entirely, and
+        // `adapter.withdraw` itself doesn't depend on the oracle).
+        // V3: only the per-market debt is checked — withdrawing collateral
+        // here cannot affect any other market's HF (their debt+collat are
+        // isolated).
+        uint256 debt = _userDebtFor(msg.sender, adapter);
         if (debt > 0) {
             uint256 totalCollateral = IAssetAdapter(adapter).getAssetValue(msg.sender, data);
             uint256 withdrawing = IAssetAdapter(adapter).getWithdrawValue(msg.sender, data);
@@ -303,8 +306,10 @@ contract AgamaLendingPool is ERC4626, ILendingPool, AccessControl, Pausable, Ree
 
         // HF after borrow at adapter MAX_LTV. `getAssetValue` reverts on stale
         // oracle, so a stale oracle naturally blocks new borrows.
+        // V3: debt is per-market — each adapter is checked against ITS OWN
+        // debt only. No cross-collateral aggregation.
         uint256 collateralValue = IAssetAdapter(adapter).getAssetValue(msg.sender, data);
-        uint256 newDebt = _userDebt(msg.sender) + amount;
+        uint256 newDebt = _userDebtFor(msg.sender, adapter) + amount;
         uint256 ltBps = IAssetAdapter(adapter).MAX_LTV();
         uint256 hf = _hf(collateralValue, newDebt, ltBps);
         if (hf < HF_LIQUIDATION_THRESHOLD) revert HealthFactorTooLow();
@@ -323,7 +328,7 @@ contract AgamaLendingPool is ERC4626, ILendingPool, AccessControl, Pausable, Ree
             }
         }
 
-        DEBT_TOKEN.mint(msg.sender, amount, _reserve.usageIndex);
+        DEBT_TOKEN.mint(msg.sender, adapter, amount, _reserve.usageIndex);
         IERC20(asset()).safeTransfer(msg.sender, amount - fee);
 
         _afterMutation();
@@ -337,20 +342,22 @@ contract AgamaLendingPool is ERC4626, ILendingPool, AccessControl, Pausable, Ree
         returns (uint256 paid)
     {
         // No oracle dependency — repay is always allowed (exit path).
+        // V3: repay is scoped to a market — only the user's debt on
+        // `adapter` is reduced. No cross-market spillover.
         IAssetAdapter(adapter).getPositionKey(data); // sanity decode
         _reserve.updateState();
         _materializeRedistribution(adapter, msg.sender);
 
-        uint256 debt = _userDebt(msg.sender);
+        uint256 debt = _userDebtFor(msg.sender, adapter);
         paid = amount == type(uint256).max ? debt : amount;
         if (paid == 0) revert AmountZero();
         if (paid > debt) paid = debt;
 
         IERC20(asset()).safeTransferFrom(msg.sender, address(this), paid);
-        DEBT_TOKEN.burn(msg.sender, paid, _reserve.usageIndex);
+        DEBT_TOKEN.burn(msg.sender, adapter, paid, _reserve.usageIndex);
 
         _afterMutation();
-        emit Repay(msg.sender, msg.sender, paid);
+        emit Repay(msg.sender, adapter, paid);
     }
 
     // ---- Liquidation (instant, single function) --------------------------
@@ -378,17 +385,21 @@ contract AgamaLendingPool is ERC4626, ILendingPool, AccessControl, Pausable, Ree
         _reserve.updateState();
         _materializeRedistribution(adapter, user);
 
-        uint256 scaledDebt = DEBT_TOKEN.balanceOf(user);
-        if (scaledDebt == 0) revert NoDebtToLiquidate();
+        // V3: liquidation wipes only the per-market debt of `user` on
+        // `adapter`. Other markets the user has positions on are
+        // untouched. This eliminates the cross-collateral exploit where
+        // a small dust position could trigger a full debt wipe.
+        uint256 marketDebt = DEBT_TOKEN.balanceOf(user, adapter);
+        if (marketDebt == 0) revert NoDebtToLiquidate();
 
         uint256 collateralValue = IAssetAdapter(adapter).getAssetValue(user, data);
         uint256 ltBps = IAssetAdapter(adapter).LIQUIDATION_THRESHOLD();
-        uint256 hf = _hf(collateralValue, scaledDebt, ltBps);
+        uint256 hf = _hf(collateralValue, marketDebt, ltBps);
         if (hf >= HF_LIQUIDATION_THRESHOLD) revert HealthFactorTooHigh();
 
         uint256 spShares = balanceOf(sp);
         uint256 spCapacityAssets = convertToAssets(spShares);
-        absorbedAssets = scaledDebt < spCapacityAssets ? scaledDebt : spCapacityAssets;
+        absorbedAssets = marketDebt < spCapacityAssets ? marketDebt : spCapacityAssets;
         // ERC-4626 rounding: convertToShares(convertToAssets(N)) may equal N-1.
         // When SP burns its full capacity, this can leave 1 wei of agTOKEN
         // shares against zero asset backing — economically inert (SP is
@@ -400,16 +411,20 @@ contract AgamaLendingPool is ERC4626, ILendingPool, AccessControl, Pausable, Ree
             emit DonationBurned(sp, sharesToBurn);
         }
 
-        DEBT_TOKEN.burn(user, scaledDebt, _reserve.usageIndex);
+        DEBT_TOKEN.burn(user, adapter, marketDebt, _reserve.usageIndex);
         IAssetAdapter(adapter).transferAsset(user, data, sp);
 
         _userLDebtSnapshot[adapter][user] = bdAccLDebt;
 
-        badDebt = scaledDebt - absorbedAssets;
+        badDebt = marketDebt - absorbedAssets;
+        // Bad-debt residual is socialized GLOBALLY via bdAccLDebt — the SP
+        // and (via collat-weighted materialization) other borrowers absorb
+        // it. The lender pool is mutualized by design even though borrower
+        // positions are isolated per-market.
         if (badDebt > 0) _redistributeBadDebt(adapter, badDebt);
 
         _afterMutation();
-        emit Liquidated(sp, user, adapter, scaledDebt, absorbedAssets, badDebt);
+        emit Liquidated(sp, user, adapter, marketDebt, absorbedAssets, badDebt);
     }
 
     // ---- Protocol-specific extensions (clearly non-standard) -------------
@@ -568,12 +583,19 @@ contract AgamaLendingPool is ERC4626, ILendingPool, AccessControl, Pausable, Ree
         _;
     }
 
-    function _userDebt(address user) internal view returns (uint256) {
-        return DEBT_TOKEN.balanceOf(user);
+    /// @notice Per-market debt of `user` on `adapter` — the canonical
+    ///         number used by every economic check (HF, repay cap,
+    ///         liquidation seizure target).
+    function _userDebtFor(address user, address adapter) internal view returns (uint256) {
+        return DEBT_TOKEN.balanceOf(user, adapter);
     }
 
+    /// @notice Per-market debt of `user` ON `adapter` plus their pending
+    ///         pro-rata share of bad-debt redistribution. Bad debt is
+    ///         materialized lazily — this view applies the unsettled
+    ///         delta on top of the on-chain per-market balance.
     function _userActualDebt(address adapter, address user) internal view returns (uint256) {
-        uint256 base = DEBT_TOKEN.balanceOf(user);
+        uint256 base = DEBT_TOKEN.balanceOf(user, adapter);
         uint256 snapL = _userLDebtSnapshot[adapter][user];
         if (bdAccLDebt <= snapL) return base;
         uint256 collat = IAssetAdapter(adapter).getInternalBalance(user, "");
@@ -593,7 +615,7 @@ contract AgamaLendingPool is ERC4626, ILendingPool, AccessControl, Pausable, Ree
         uint256 delta = bdAccLDebt - snapL;
         uint256 extra = (collat * delta) / RAY;
         if (extra > 0) {
-            DEBT_TOKEN.mint(user, extra, _reserve.usageIndex);
+            DEBT_TOKEN.mint(user, adapter, extra, _reserve.usageIndex);
             emit RedistributionMaterialized(adapter, user, extra);
         }
     }

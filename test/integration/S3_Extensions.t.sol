@@ -146,7 +146,7 @@ contract S3ExtensionsTest is Test {
         pool.burnDonation(address(sp), sharesToBurn);
 
         vm.prank(address(pool));
-        dt.burn(alice, debtToBurn, idx);
+        dt.burn(alice, address(adapter), debtToBurn, idx);
 
         uint256 sharePriceAfter = pool.convertToAssets(1e18);
         // Pair (burnDonation + DebtToken.burn) preserves share price within rounding.
