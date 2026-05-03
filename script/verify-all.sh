@@ -62,6 +62,11 @@ verify USDr            $USDR_ADDR         src/mocks/MockUSDr.sol:MockUSDr       
 verify MockAMFI        $AMFI_ADDR         src/mocks/MockAMFI.sol:MockAMFI             "$AMFI_ARGS"
 verify MockOracle      $ORACLE_ADDR       src/mocks/MockOracle.sol:MockOracle         "$ORACLE_ARGS"
 verify DemoFaucet      $FAUCET_ADDR       src/mocks/DemoFaucet.sol:DemoFaucet         "$FAUCET_ARGS"
+
+# SplitFaucet
+SPLIT_ADDR=$(jq -r '.contracts.SplitFaucet' deployments/7295799.json)
+SPLIT_ARGS=$(cast abi-encode "constructor(address,address,address,uint256,uint256,uint256)" $DEPLOYER_ADDR $USDR_ADDR $AMFI_ADDR 1000000000000000000000000 1000000000000000000000000 86400)
+verify SplitFaucet     $SPLIT_ADDR        src/mocks/SplitFaucet.sol:SplitFaucet       "$SPLIT_ARGS"
 verify LendingPool     $POOL_ADDR         src/core/LendingPool.sol:AgamaLendingPool   "$POOL_ARGS"
 verify DebtToken       $DEBT_ADDR         src/core/DebtToken.sol:DebtToken            "$DEBT_ARGS"
 verify AmFiAdapter     $ADAPTER_ADDR      src/adapters/AmFiAdapter.sol:AmFiAdapter    "$ADAPTER_ARGS"
