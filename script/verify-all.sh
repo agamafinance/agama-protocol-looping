@@ -1,7 +1,6 @@
 #!/usr/bin/env bash
-# Verify all 13 deployed contracts on Rayls testnet Blockscout.
-# Run from repo root (smart/). Reads .env automatically via foundry.
-
+# Verify all V2 deployed contracts on Rayls testnet Blockscout.
+# Reads addresses from deployments/7295799.json + 7295799.tranches.json.
 set -e
 source .env
 
@@ -18,30 +17,28 @@ COMMON_ARGS=(
   --watch
 )
 
-# Constructor args precomputed via `cast abi-encode`.
 DEPLOYER_ADDR=0xf6d3C9Ed2115A5197F96f6189F6D63B51022Fe16
-USDR_ADDR=0xe52958da496cc0D3A0c652692112D5519d3bBC63
-AMFI_ADDR=0xf2Db2114b62157D96a383f57De2221F8A5C00f7F
-ORACLE_ADDR=0x534eC51fd74405433e1388a2907b1949BfD89D2e
-FAUCET_ADDR=0x381C1F1153a1cacB8151c1e1c82E401F8E633C6d
-POOL_ADDR=0x2f712E6588C54dD995295B7e34411779CcC0075e
-DEBT_ADDR=0x884Cb0e601748e359B18B4c0CDafcE9E428948AF
-ADAPTER_ADDR=0xF9dC483AcB3000000c5fA8F9577BCb20bC473466
-SP_ADDR=0x48C5d92d50AcD644CCFAf931b98E86542Ef3B7A3
-PROXY_ADDR=0x30A7321FA55904B270729d515A6D95B4AcEB9A18
-SVAULT_ADDR=0x76cbf132fe4beB132e9eB35d5A0cC6450306bffc
-TREASURY_ADDR=0xB74bEEe8f4b871E049082038Cc4c55d52b200A7d
-RF_ADDR=0x7aDf137A51E67427404dabC35F01E92e5e910208
-FEECOLLECTOR_ADDR=0x4140a587387069365688b281523Feef3f5843fd0
+
+USDR_ADDR=$(jq -r '.contracts.USDr' deployments/7295799.json)
+AMFI_ADDR=$(jq -r '.contracts.MockAMFI' deployments/7295799.json)
+ORACLE_ADDR=$(jq -r '.contracts.MockOracle' deployments/7295799.json)
+FAUCET_ADDR=$(jq -r '.contracts.Faucet' deployments/7295799.json)
+POOL_ADDR=$(jq -r '.contracts.LendingPool' deployments/7295799.json)
+DEBT_ADDR=$(jq -r '.contracts.DebtToken' deployments/7295799.json)
+ADAPTER_ADDR=$(jq -r '.contracts.AmFiAdapter' deployments/7295799.json)
+SP_ADDR=$(jq -r '.contracts.StabilityPool' deployments/7295799.json)
+PROXY_ADDR=$(jq -r '.contracts.LiquidationProxy' deployments/7295799.json)
+SVAULT_ADDR=$(jq -r '.contracts.SettlementVault' deployments/7295799.json)
+TREASURY_ADDR=$(jq -r '.contracts.Treasury' deployments/7295799.json)
+RF_ADDR=$(jq -r '.contracts.ReserveFund' deployments/7295799.json)
+FEECOLLECTOR_ADDR=$(jq -r '.contracts.FeeCollector' deployments/7295799.json)
 
 verify() {
     local label="$1" addr="$2" path="$3" args="$4"
-    echo ""
     echo "=== Verifying $label at $addr ==="
     forge verify-contract "${COMMON_ARGS[@]}" \
         --constructor-args "$args" \
-        "$addr" "$path" \
-        || echo "$label failed"
+        "$addr" "$path" || echo "$label failed (already verified or transient)"
 }
 
 USDR_ARGS=$(cast abi-encode "constructor(address)" $DEPLOYER_ADDR)
@@ -56,8 +53,9 @@ TREASURY_ARGS=$(cast abi-encode "constructor(address,address,address,address)" $
 RF_ARGS=$(cast abi-encode "constructor(address,address,address,address)" $DEPLOYER_ADDR $POOL_ADDR $SP_ADDR $USDR_ADDR)
 FC_ARGS=$(cast abi-encode "constructor(address,address)" $DEPLOYER_ADDR $TREASURY_ADDR)
 SVAULT_ARGS=$(cast abi-encode "constructor(address,address,address,address,address)" $DEPLOYER_ADDR $SP_ADDR $POOL_ADDR $TREASURY_ADDR $USDR_ADDR)
+
 POOL_ARGS=$(cast abi-encode "constructor(address,address,string,string,(uint256,uint256,uint256,uint256),bool)" \
-    $USDR_ADDR $DEPLOYER_ADDR "Agama Pool USDr" agUSDr \
+    $USDR_ADDR $DEPLOYER_ADDR "Agama Yield" agYLD \
     '(20000000000000000000000000,80000000000000000000000000,600000000000000000000000000,800000000000000000000000000)' true)
 
 verify USDr            $USDR_ADDR         src/mocks/MockUSDr.sol:MockUSDr             "$USDR_ARGS"
@@ -74,5 +72,34 @@ verify ReserveFund     $RF_ADDR           src/collectors/ReserveFund.sol:AgamaRe
 verify FeeCollector    $FEECOLLECTOR_ADDR src/collectors/FeeCollector.sol:AgamaFeeCollector "$FC_ARGS"
 verify SettlementVault $SVAULT_ADDR       src/core/SettlementVault.sol:AgamaSettlementVault "$SVAULT_ARGS"
 
+# ---- Tranches (3 contracts × 6 tranches = 18) ------------------------
+verify_tranche() {
+    local sym="$1"
+    local name=$(jq -r ".$sym.name" deployments/7295799.tranches.json)
+    local apr=$(jq -r ".$sym.aprRay" deployments/7295799.tranches.json)
+    local lt=$(jq -r ".$sym.lt" deployments/7295799.tranches.json)
+    local maxLtv=$(jq -r ".$sym.maxLtv" deployments/7295799.tranches.json)
+    local bonus=$(jq -r ".$sym.bonus" deployments/7295799.tranches.json)
+    local ttype=$(jq -r ".$sym.tranche" deployments/7295799.tranches.json)
+    local pool_name=$(jq -r ".$sym.pool" deployments/7295799.tranches.json)
+    local token=$(jq -r ".$sym.token" deployments/7295799.tranches.json)
+    local oracle=$(jq -r ".$sym.oracle" deployments/7295799.tranches.json)
+    local adapter=$(jq -r ".$sym.adapter" deployments/7295799.tranches.json)
+
+    local TOKEN_ARGS=$(cast abi-encode "constructor(string,string,string,string,uint256,address)" \
+        "$name" "$sym" "$pool_name" "$ttype" "$apr" $DEPLOYER_ADDR)
+    verify "${sym}_TOKEN" $token src/mocks/MockTrancheToken.sol:MockTrancheToken "$TOKEN_ARGS"
+
+    verify "${sym}_ORACLE" $oracle src/mocks/MockOracle.sol:MockOracle "$ORACLE_ARGS"
+
+    local AD_ARGS=$(cast abi-encode "constructor(address,address,address,address,uint256,uint256,uint256,uint256)" \
+        $POOL_ADDR $token $oracle $DEPLOYER_ADDR $maxLtv $lt $bonus 86400)
+    verify "${sym}_ADAPTER" $adapter src/adapters/AmFiAdapter.sol:AmFiAdapter "$AD_ARGS"
+}
+
+for sym in sRESOLV jRESOLV sDIGCAP jDIGCAP sCONDO jCONDO; do
+    verify_tranche "$sym"
+done
+
 echo ""
-echo "=== All verifications submitted ==="
+echo "=== All verifications submitted (31 contracts) ==="
