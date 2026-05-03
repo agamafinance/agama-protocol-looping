@@ -1,0 +1,97 @@
+════════════════════════════════════════════════════════════
+  BIG BORROW — drive utilization from 4% → ~50%
+════════════════════════════════════════════════════════════
+
+  ── BEFORE ──
+  File "<string>", line 1
+    print(f'{int("1470302657981906001410044")/1e18:,.0f}') USDr
+                                                           ^
+SyntaxError: invalid syntax
+    Pool TVL               
+  File "<string>", line 1
+    print(f'{int("1410302500000634900500937")/1e18:,.0f}') USDr
+                                                           ^
+SyntaxError: invalid syntax
+    Cash on pool           
+  File "<string>", line 1
+    print(f'{int("60000157981271100909107")/1e18:,.0f}') USDr
+                                                         ^
+SyntaxError: invalid syntax
+    Total debt             
+    Utilization            4.08 %
+Traceback (most recent call last):
+  File "<string>", line 1, in <module>
+ValueError: invalid literal for int() with base 10: '884420101016923883408973[8.844e23]'
+    Lender APR             
+Traceback (most recent call last):
+  File "<string>", line 1, in <module>
+ValueError: invalid literal for int() with base 10: '24080798987024548196186689[2.408e25]'
+    Borrow APR             
+
+── 1. mint 1M sRESOLV to borrower
+    ✓ minted 1,000,000 sRESOLV
+
+── 2. openVaultPosition + deposit 1M as collateral
+    ✓ collateral parked: 1000000.0 sRESOLV (~$1M @ pps=1)
+
+── 3. borrow 700k USDr
+    ✓ borrowed 700,000 USDr; HF = 1.2143423800613322
+
+  ── AFTER ──
+  File "<string>", line 1
+    print(f'{int("1473802664118236785454951")/1e18:,.0f}') USDr
+                                                           ^
+SyntaxError: invalid syntax
+    Pool TVL               
+  File "<string>", line 1
+    print(f'{int("713802500000634900500937")/1e18:,.0f}') USDr
+                                                          ^
+SyntaxError: invalid syntax
+    Cash on pool           
+  File "<string>", line 1
+    print(f'{int("760000164117601884954014")/1e18:,.0f}') USDr
+                                                          ^
+SyntaxError: invalid syntax
+    Total debt             
+    Utilization            51.57 %
+Traceback (most recent call last):
+  File "<string>", line 1, in <module>
+ValueError: invalid literal for int() with base 10: '33214785877997833849257836[3.321e25]'
+    Lender APR             
+Traceback (most recent call last):
+  File "<string>", line 1, in <module>
+ValueError: invalid literal for int() with base 10: '71567294598853225384416283[7.156e25]'
+    Borrow APR             
+
+── 4. partial repay 200k (re-test the descent path)
+    ✓ repaid 200,000 USDr
+
+  ── AFTER PARTIAL REPAY ──
+  File "<string>", line 1
+    print(f'{int("1473802685844903780418938")/1e18:,.0f}') USDr
+                                                           ^
+SyntaxError: invalid syntax
+    Pool TVL               
+  File "<string>", line 1
+    print(f'{int("913802500000634900500937")/1e18:,.0f}') USDr
+                                                          ^
+SyntaxError: invalid syntax
+    Cash on pool           
+  File "<string>", line 1
+    print(f'{int("560000185844268879918001")/1e18:,.0f}') USDr
+                                                          ^
+SyntaxError: invalid syntax
+    Total debt             
+    Utilization            38.00 %
+Traceback (most recent call last):
+  File "<string>", line 1, in <module>
+ValueError: invalid literal for int() with base 10: '19833371658250597691660882[1.983e25]'
+    Lender APR             
+Traceback (most recent call last):
+  File "<string>", line 1, in <module>
+ValueError: invalid literal for int() with base 10: '57996957841386616239347030[5.799e25]'
+    Borrow APR             
+
+════════════════════════════════════════════════════════════
+  ✓ DONE — APR responded to live utilization changes
+════════════════════════════════════════════════════════════
