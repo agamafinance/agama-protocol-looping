@@ -1,0 +1,42 @@
+════════════════════════════════════════════════════════════
+  V3 FULL E2E v2 — exhaustive on-chain validation
+  User:      0x48A12DC6aFFB320226746b6667d12c76F6821A3e
+  Recipient: 0x1A81BcC9F0A5539d2e03dA00bD6E52BEC84b5Db6
+════════════════════════════════════════════════════════════
+
+═══ 1. LP.deposit (100k USDr → agYLD) ═══
+    ✓ agYLD minted (delta 99999.95983006396)
+
+═══ 2. LP.withdraw (30k USDr) ═══
+    ✓ agYLD burned (29999.987942915566 delta)
+
+═══ 3. LP.openVaultPosition ═══
+    ✓ vault open
+
+═══ 4. LP.depositAsset (50k sRESOLV) ═══
+    ✓ sRESOLV collat: 49999.99999999999
+
+═══ 5. LP.withdrawAsset (10k sRESOLV) ═══
+    ✓ withdrawAsset OK (49999.99999999999 -> 40000.0)
+
+═══ 6. LP.borrow (20k USDr via sRESOLV) ═══
+    ✓ sRESOLV debt: 20000.0 USDr
+
+═══ 7. LP.repay partial (5k via sRESOLV) ═══
+    ✓ debt reduced (20000.0 -> 15000.000192102358)
+
+═══ 8. SP.deposit (stake half of agYLD) ═══
+    ✓ sagYLD minted: 39999.98583147349
+
+═══ 9. SP.requestUnstake (1/4 of sagYLD) ═══
+    ✓ earmarked: 9999.996457868372
+
+═══ 10. SP.transfer (1k sagYLD) ═══
+    ✓ transfer delta exact (1000 sagYLD)
+
+═══ 11. Multi-market isolation: borrow jRESOLV, sRESOLV unaffected ═══
+    ✓ sRESOLV unchanged (drift 6.6780311739404e-05 only accrual)
+    ✓ jRESOLV debt minted: 10000.0 USDr
+
+═══ 12. liquidate(SAFE) must revert ═══
+    ✓ HF sRESOLV ≥ 1 (2.2667)
