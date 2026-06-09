@@ -26,7 +26,7 @@ deploy() { stellar contract deploy --wasm "$1" --source "$SRC" --network "$NET" 
 echo "==> agUSD (deposit asset = real USDC)"
 AGUSD=$(deploy "$WASM/agusd.wasm")
 inv "$AGUSD" initialize --admin "$ADMIN" --usdc "$USDC" --treasury "$TREASURY" \
-  --decimal $DEC --name "Agama USD" --symbol "agUSD"
+  --buffer_bps 2000 --decimal $DEC --name "Agama USD" --symbol "agUSD"
 echo "    $AGUSD"
 
 echo "==> sagUSD staking vault"
@@ -57,6 +57,17 @@ for v in "${VAULTS[@]}"; do
   echo "    $slug -> $ID"
   RESULTS+=("$slug=$ID")
 done
+
+echo "==> Allocation Engine targets on agUSD (auto-deploy above 20% buffer)"
+TARGETS=$(python3 - "${RESULTS[@]}" <<'PY'
+import json, sys
+W = {"payment-financing":2500,"private-credit":1000,"institutional-credit":1500,
+     "flagship":2500,"high-yield":1000,"dealvaults":1500}
+out=[{"vault":kv.split("=")[1],"weight_bps":W[kv.split("=")[0]]} for kv in sys.argv[1:]]
+print(json.dumps(out))
+PY
+)
+inv "$AGUSD" set_targets --targets "$TARGETS"
 
 echo "==> writing deployments/testnet.json"
 python3 - "$USDC" "$AGUSD" "$STAKING" "$TREASURY" "$USDC_ISSUER" "${RESULTS[@]}" <<'EOF'

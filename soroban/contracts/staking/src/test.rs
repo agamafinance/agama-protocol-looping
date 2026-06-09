@@ -39,6 +39,7 @@ fn setup() -> Fix {
         &admin,
         &usdc_id,
         &treasury,
+        &2000u32,
         &7u32,
         &String::from_str(&e, "Agama USD"),
         &String::from_str(&e, "agUSD"),

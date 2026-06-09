@@ -35,9 +35,9 @@ inv() { stellar contract invoke --id "$1" --source $SRC --network $NET -- "${@:2
 echo "== preflight: admin USDC balance (real Circle USDC) =="
 BAL=$(num "$(inv $USDC balance --id $ADMIN)")
 echo "  admin=$ADMIN balance=$BAL (7dp)"
-if [ -z "$BAL" ] || [ "$BAL" -lt 100000000 ]; then
+if [ -z "$BAL" ] || [ "$BAL" -lt 80000000 ]; then
   echo ""
-  echo "  ⛔ Need >= 10 USDC on the admin to run the E2E."
+  echo "  ⛔ Need >= 8 USDC on the admin to run the E2E."
   echo "     Go to https://faucet.circle.com -> USDC / Stellar Testnet -> send to:"
   echo "     $ADMIN"
   exit 2
