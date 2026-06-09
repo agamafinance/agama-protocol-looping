@@ -37,9 +37,9 @@ inv "$AGUSD" initialize --admin "$ADMIN" --usdc "$USDC" --treasury "$TREASURY" \
 inv "$STAKING" initialize --admin "$ADMIN" --agusd "$AGUSD" --cooldown_seconds "$COOLDOWN" \
   --decimal "$DEC" --name "Staked agUSD" --symbol "sagUSD"
 
-echo "==> Kiro allocations (UI display)"
+echo "==> curated credit-vault allocations (UI display)"
 inv "$STAKING" set_allocations --allocations \
-  '[{"name":"Kiro Core LP","target_bps":5000,"apy_bps":1100},{"name":"Kiro Stable LP","target_bps":3000,"apy_bps":900},{"name":"Kiro Edge LP","target_bps":2000,"apy_bps":1900}]'
+  '[{"name":"Payment Financing Vault","target_bps":5000,"apy_bps":1400},{"name":"Private Credit Vault","target_bps":2000,"apy_bps":1300},{"name":"Institutional Credit Vault","target_bps":3000,"apy_bps":1200}]'
 
 echo "==> seeding admin yield buffer (50k USDC -> agUSD)"
 inv "$USDC" faucet --to "$ADMIN" --amount 500000000000   # 50,000 USDC (7dp)
