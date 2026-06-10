@@ -1,0 +1,12 @@
+[package]
+name = "agama-shared"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+alloy-primitives.workspace = true
+stylus-sdk.workspace = true
+
+[lib]
+crate-type = ["lib"]

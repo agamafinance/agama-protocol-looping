@@ -1,0 +1,11 @@
+{
+  "name": "agama-arbitrum-keeper",
+  "version": "0.1.0",
+  "type": "module",
+  "description": "Best-effort liquidation keeper for Agama on Arbitrum. Indexes pool positions, computes health factors, and races liquidations through the Timeboost express lane.",
+  "scripts": {
+    "start": "node src/index.mjs",
+    "scan": "node src/index.mjs --once"
+  },
+  "dependencies": { "viem": "^2.52.0" }
+}
