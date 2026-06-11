@@ -1,0 +1,15 @@
+[workspace]
+members = ["crates/shared"]
+exclude = ["crates/mock-usdc", "crates/agusd", "crates/sagusd", "crates/nav-oracle", "crates/rwa-vault", "crates/lending-pool"]
+resolver = "2"
+
+[workspace.package]
+version = "0.1.0"
+edition = "2024"
+license = "MIT OR Apache-2.0"
+
+[workspace.dependencies]
+alloy-primitives = "1.5.7"
+alloy-sol-types = "1.5.7"
+stylus-sdk = "0.10.7"
+agama-shared = { path = "crates/shared" }

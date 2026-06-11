@@ -1,0 +1,25 @@
+{
+  "network": "arbitrum-sepolia",
+  "chainId": 421614,
+  "rpc": "https://sepolia-rollup.arbitrum.io/rpc",
+  "deployer": "0xf6d3C9Ed2115A5197F96f6189F6D63B51022Fe16",
+  "treasury": "0xf6d3C9Ed2115A5197F96f6189F6D63B51022Fe16",
+  "verified": true,
+  "verification": "All contracts reproducibly verified with `cargo stylus verify` (cargo-stylus 0.10.7). Token/oracle contracts on toolchain 1.91.0; LendingPool and RwaVault on nightly-2025-08-01 with build-std + panic_immediate_abort to fit a single fragment.",
+  "contracts": {
+    "MockUSDC": "0x71084fe670754e590aa9f613e88724beb3f1b489",
+    "AgUSD": "0x2dc1bad4e0a3af9acf003d65dea54dc568e787d2",
+    "SagUSD": "0xc61cd1e0c8301e4e883913a9fe236b65688a241c",
+    "NavOracle": "0xc925d86b2f9c1b1c94f98b1f20c203eed8cad79b",
+    "LendingPool": "0x221274708afbe3934fa2e3e16dbbb83055f992d0"
+  },
+  "vaults": [
+    { "key": "qPFV", "name": "Payment Financing Vault", "curator": "Qiro", "address": "0x8b5c1f342e1e8189ff636ce1c2bbf32cd987bfee", "apyBps": 1400, "ltv": "0.75", "threshold": "0.82", "bonus": "0.06", "capacityUsd": 25000000 },
+    { "key": "qPCV", "name": "Private Credit Vault", "curator": "Qiro", "address": "0x255abc47c6e2cfcfb376dcefef8ebd5790997bbd", "apyBps": 1300, "ltv": "0.70", "threshold": "0.78", "bonus": "0.07", "capacityUsd": 10000000 },
+    { "key": "qICV", "name": "Institutional Credit Vault", "curator": "Qiro", "address": "0x9f617bade5db3fbe6391e982a40baf96b0781f88", "apyBps": 1200, "ltv": "0.65", "threshold": "0.73", "bonus": "0.08", "capacityUsd": 15000000 },
+    { "key": "tSNR", "name": "Flagship Vault (ABF Senior)", "curator": "Tenka", "address": "0x6200a2d00d976f358509f869c95096f8d901f7eb", "apyBps": 850, "ltv": "0.80", "threshold": "0.86", "bonus": "0.05", "capacityUsd": 500000000 },
+    { "key": "tMEZ", "name": "High Yield Vault (ABF Mezz)", "curator": "Tenka", "address": "0x3672f2d8fef0066f53481aed7f4bba9a85216b9d", "apyBps": 1750, "ltv": "0.50", "threshold": "0.60", "bonus": "0.10", "capacityUsd": 200000000 },
+    { "key": "tDV", "name": "DealVaults (Deal-by-Deal)", "curator": "Tenka", "address": "0x565f7ece62c71fb3840f27e0d4a5ad6fd76500d6", "apyBps": 1100, "ltv": "0.55", "threshold": "0.65", "bonus": "0.09", "capacityUsd": 300000000 }
+  ],
+  "interestModel": { "base": "0.00", "slope1": "0.04", "slope2": "0.60", "kink": "0.80", "reserveFactor": "0.10" }
+}
