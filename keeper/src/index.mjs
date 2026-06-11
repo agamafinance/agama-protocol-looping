@@ -24,6 +24,7 @@ const cfg = {
   hexChainId: `0x${dep.chainId.toString(16)}`,
   rpc: process.env.RPC || dep.rpc,
   auctioneer: process.env.AUCTIONEER || 'https://arbsepolia-auctioneer.arbitrum.io/',
+  reserveApi: process.env.RESERVE_API || 'https://arbsepolia-reserve-pricer.arbitrum.io/api/latest',
   auction: process.env.AUCTION || '0x991DbEDf388CB5925318f06362D4fCa7b040527D',
   pool: dep.contracts.LendingPool,
 };

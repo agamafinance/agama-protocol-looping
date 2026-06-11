@@ -21,10 +21,31 @@ export async function controlsRound(pub, auction, controller, round) {
   return Number(resolved[0].round) === round && resolved[0].controller.toLowerCase() === controller.toLowerCase();
 }
 
-// Try to win the express lane for the next round. Returns the round number on
-// success, or null if bidding is unavailable.
-export async function bidNextRound(pub, account, cfg, amount = 1000n) {
+// Fetch the live dynamic reserve price (wei). Since April 2026 the reserve is set
+// per round by an off-chain agent; the on-chain reservePrice() reads 1 wei and bids
+// below the *dynamic* reserve are rejected. Fetch it from the reserve-pricer API.
+// https://forum.arbitrum.foundation/t/announcement-of-dynamic-reserve-price-change/30833
+export async function dynamicReserve(cfg) {
   try {
+    const r = await (await fetch(cfg.reserveApi)).json();
+    return BigInt(r.reserve_price_in_wei);
+  } catch {
+    return 0n;
+  }
+}
+
+// Try to win the express lane for the next round. Bids above the live dynamic
+// reserve (and a floor that clears the typical rival bid). Returns the round number
+// on success, or null if bidding is unavailable.
+export async function bidNextRound(pub, account, cfg, amount) {
+  try {
+    if (amount === undefined) {
+      const reserve = await dynamicReserve(cfg);
+      // 2.5x reserve, with a 0.005 WETH floor to outbid the standing rival.
+      amount = reserve * 5n / 2n;
+      const floor = 5_000_000_000_000_000n;
+      if (amount < floor) amount = floor;
+    }
     const timing = await pub.readContract({ address: cfg.auction, abi: AUCTION_ABI, functionName: 'roundTimingInfo' });
     const round = Number(await pub.readContract({ address: cfg.auction, abi: AUCTION_ABI, functionName: 'currentRound' }));
     const bidRound = round + 1;
